@@ -1,0 +1,14 @@
+{
+  "name": "Lions Wellness Day Sign-in",
+  "short_name": "Lions Kiosk",
+  "description": "Lions Clubs International — Wellness Day visitor sign-in",
+  "start_url": "kiosk.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#14284f",
+  "theme_color": "#1f3d7c",
+  "icons": [
+    { "src": "cimp-mark.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
