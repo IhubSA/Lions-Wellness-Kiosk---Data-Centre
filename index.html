@@ -158,6 +158,15 @@
   .svc { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; }
   .svc .hd { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
   .svc .two { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+  .meas { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:4px 12px; margin:10px 0 2px; padding:10px 12px; background:var(--brand-soft); border-radius:10px; }
+  .meas .lb { margin-top:0; }
+  .meas .u { display:flex; align-items:center; gap:6px; } .meas .u input { width:100%; } .meas .u small { color:var(--muted); white-space:nowrap; }
+  .meas .calc { font-size:20px; font-weight:800; padding:6px 0; }
+  .meas .head { grid-column:1/-1; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:12.5px; font-weight:700; color:var(--brand); }
+  .meas .prev { font-weight:500; color:var(--muted); }
+  .flag { display:inline-block; font-size:11.5px; font-weight:700; padding:1px 7px; border-radius:6px; margin-left:4px; vertical-align:middle; }
+  .flag.f0 { background:#e7f6ec; color:var(--ok); } .flag.f1 { background:#fff4e0; color:var(--warn); } .flag.f2 { background:#fde8e7; color:var(--danger); }
+  .trend { width:100%; border-collapse:collapse; font-size:13.5px; } .trend th, .trend td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); } .trend th { font-size:12px; color:var(--muted); font-weight:700; }
   .timeline { display:grid; gap:10px; }
   .tl { display:grid; grid-template-columns:96px 1fr; gap:10px; font-size:13.5px; }
   .tl .d { color:var(--muted); font-weight:600; }
@@ -277,6 +286,40 @@ async function q(p) { const { data, error } = await p; if (error) throw error; r
 async function all(build) { const out = []; let from = 0; for (;;) { const d = await q(build().range(from, from + 999)); out.push(...d); if (d.length < 1000) break; from += 1000; } return out; }
 const opts = (list, sel, blank, label = x => x.name, val = x => x.id) => (blank != null ? `<option value="">${esc(blank)}</option>` : '') + list.map(x => `<option value="${esc(val(x))}" ${String(val(x)) === String(sel) ? 'selected' : ''}>${esc(label(x))}</option>`).join('');
 const sopts = (list, sel, blank) => opts(list.map(x => ({ id: x, name: x })), sel, blank);
+/* ---------- screening results (health data — POPIA special personal information) ---------- */
+const measOf = catId => { const c = byId(A.ref.cats, catId); return c && c.measures && (c.measures.fields || []).length ? c.measures : null; };
+function bandOf(f, r) {
+  if (!r) return null; const v = r[f.k];
+  if (f.type === 'choice') { const fl = (f.flags || {})[v]; return v && fl ? { label: v, flag: fl } : null; }
+  if (v === '' || v == null || isNaN(+v)) return null;
+  let bands = f.bands; if (f.bands_by) bands = (bands || {})[r[f.bands_by]] || null;
+  if (!Array.isArray(bands)) return null;
+  return bands.find(b => b.lt == null || +v < b.lt) || null;
+}
+const flagTag = b => b ? `<span class="flag f${b.flag || 0}">${esc(b.label)}</span>` : '';
+function calcReadings(m, r) {
+  (m.fields || []).filter(f => f.type === 'calc').forEach(f => {
+    if (f.calc === 'bmi') { const h = +r.height / 100, w = +r.weight; r[f.k] = h > 0.5 && w > 0 ? Math.round(w / (h * h) * 10) / 10 : ''; }
+  });
+  return r;
+}
+function cleanReadings(m, r) {
+  if (!m || !r) return null; const out = {};
+  (m.fields || []).forEach(f => { const v = r[f.k]; if (v === '' || v == null) return; out[f.k] = f.type === 'choice' ? String(v) : +v; });
+  return Object.keys(out).length ? out : null;
+}
+function readingText(catId, r) {
+  const m = measOf(catId); if (!m || !r) return '';
+  let t = m.summary || (m.fields || []).map(f => `${f.label} {${f.k}}${f.unit ? ' ' + f.unit : ''}`).join(' · ');
+  // drop parts whose value is missing
+  t = t.split(' · ').filter(p => (p.match(/\{(\w+)\}/g) || []).every(x => r[x.slice(1, -1)] != null && r[x.slice(1, -1)] !== '')).join(' · ');
+  return t.replace(/\{(\w+)\}/g, (_, k) => r[k]);
+}
+function readingFlags(catId, r) {
+  const m = measOf(catId); if (!m || !r) return '';
+  return (m.fields || []).map(f => { const b = bandOf(f, r); return b && (b.flag || f.type !== 'choice') ? (f.type === 'choice' ? flagTag(b) : flagTag(Object.assign({}, b, { label: ((m.fields.filter(x => x.bands).length > 1) ? f.label.split(' (')[0] + ': ' : '') + b.label }))) : ''; }).join('');
+}
+const readingLine = (catId, r) => { const t = readingText(catId, r); return t ? `<div style="font-size:13.5px;margin-top:2px"><b>${esc(t)}</b> ${readingFlags(catId, r)}</div>` : ''; };
 const chip = (txt, color) => `<span class="chip">${color ? `<span class="dot" style="background:${color}"></span>` : ''}${esc(txt)}</span>`;
 const statusChip = st => chip(STATUS[st] ? STATUS[st].label : st, STATUS[st] && STATUS[st].c);
 function killCharts() { A.charts.forEach(c => c.destroy()); A.charts = []; }
@@ -516,7 +559,7 @@ function stopPoll() { if (A.poll) clearInterval(A.poll); A.poll = null; }
    ===================================================================== */
 const VISIT_SELECT = 'id, org_id, hub_id, visitor_id, ticket_no, visited_at, is_first_visit, status, need_description, unmet_other, feedback_token, source, assigned_member_id, completed_at, ' +
   'visitor:visitors(id, full_name, mobile, email, community, age_group, gender, is_minor, guardian_consent, created_at, anonymised_at), ' +
-  'visit_services(id, category_id, status, is_available, programme_id, assigned_member_id, service_provided, referral_org, resolved, follow_up_date, updated_at), feedback(id, rating, assisted, staff_helpful, visit_again, improve, additional_needs, created_at)';
+  'visit_services(id, category_id, status, is_available, programme_id, assigned_member_id, service_provided, referral_org, resolved, follow_up_date, updated_at, readings), feedback(id, rating, assisted, staff_helpful, visit_again, improve, additional_needs, created_at)';
 const fbOf = v => Array.isArray(v.feedback) ? v.feedback[0] : v.feedback;
 
 const QS = { hub: '', showDone: false };
@@ -598,8 +641,32 @@ async function recordVisit(id, onSaved) {
   const existing = (v.visit_services || []).filter(s => s.is_available);
   const unmet = (v.visit_services || []).filter(s => !s.is_available);
   const offered = A.ref.cats.filter(c => c.active && A.ref.hubSvc.some(h => h.hub_id === v.hub_id && h.category_id === c.id));
+  // previous screening results for this person (most recent first)
+  let prevVisits = [];
+  try { prevVisits = await q(sb.from('visits').select('id, visited_at, visit_services(category_id, readings)').eq('visitor_id', v.visitor_id).neq('id', v.id).lt('visited_at', v.visited_at).order('visited_at', { ascending: false }).limit(30)); } catch (e) {}
+  const lastOf = catId => { for (const pv of prevVisits) { const s = (pv.visit_services || []).find(x => x.category_id === catId && x.readings); if (s) return { at: pv.visited_at, r: s.readings }; } return null; };
   // working state: one row per service
-  const rows = existing.map(s => ({ id: s.id, category_id: s.category_id, outcome: isPending(s) ? 'completed' : s.status, provided: s.service_provided || '', referral: s.referral_org || '', follow: s.follow_up_date || '', programme_id: s.programme_id }));
+  const rows = existing.map(s => ({ id: s.id, category_id: s.category_id, outcome: isPending(s) ? 'completed' : s.status, provided: s.service_provided || '', referral: s.referral_org || '', follow: s.follow_up_date || '', programme_id: s.programme_id, readings: Object.assign({}, s.readings || {}) }));
+  const measBlock = (r, i) => {
+    const m = measOf(r.category_id); if (!m) return '';
+    const last = lastOf(r.category_id);
+    calcReadings(m, r.readings);
+    return `<div class="meas"><div class="head"><span>Results</span>${last ? `<span class="prev">Last time (${fmtDate(last.at)}): ${esc(readingText(r.category_id, last.r))} ${readingFlags(r.category_id, last.r)}</span>` : '<span class="prev">No previous results</span>'}</div>
+      ${m.fields.map(f => {
+        const val = r.readings[f.k] == null ? '' : r.readings[f.k];
+        if (f.type === 'choice') return `<div><label class="lb">${esc(f.label)}</label><select class="i" style="width:100%" data-m="${f.k}" data-i="${i}"><option value="">—</option>${f.options.map(o => `<option ${String(val) === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
+        if (f.type === 'calc') return `<div><label class="lb">${esc(f.label)}</label><div class="calc" id="calc_${i}_${f.k}">${val === '' ? '—' : esc(val)} ${flagTag(bandOf(f, r.readings))}</div></div>`;
+        return `<div><label class="lb">${esc(f.label)}</label><div class="u"><input class="i" type="number" inputmode="decimal" step="${f.step || 1}" ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''} data-m="${f.k}" data-i="${i}" value="${esc(val)}"><small>${esc(f.unit || '')}</small></div><div id="bd_${i}_${f.k}" style="min-height:18px">${flagTag(bandOf(f, r.readings))}</div></div>`;
+      }).join('')}</div>`;
+  };
+  const refreshFlags = i => {
+    const r = rows[i]; const m = measOf(r.category_id); if (!m) return; calcReadings(m, r.readings);
+    m.fields.forEach(f => {
+      const bd = $('bd_' + i + '_' + f.k); if (bd) bd.innerHTML = flagTag(bandOf(f, r.readings));
+      const c = $('calc_' + i + '_' + f.k); if (c) c.innerHTML = `${r.readings[f.k] === '' || r.readings[f.k] == null ? '—' : esc(r.readings[f.k])} ${flagTag(bandOf(f, r.readings))}`;
+      if (f.bands_by) { const b = $('bd_' + i + '_' + f.k); if (b) b.innerHTML = flagTag(bandOf(f, r.readings)); }
+    });
+  };
   const draw = () => {
     const body = $('rec_body'); if (!body) return;
     body.innerHTML = rows.map((r, i) => `
@@ -607,13 +674,15 @@ async function recordVisit(id, onSaved) {
         <div class="hd"><b>${esc((byId(A.ref.cats, r.category_id) || {}).icon || '')} ${esc(nameOf(A.ref.cats, r.category_id))}</b>${r.id ? '' : '<span class="badge">Added</span>'}
           ${r.id ? '' : `<button class="linkbtn" data-rm="${i}" style="margin-left:auto">Remove</button>`}</div>
         <div class="outcomes">${OUTCOMES.map(o => `<button type="button" class="oc ${r.outcome === o.k ? 'on ' + o.k : ''}" data-i="${i}" data-o="${o.k}"><span>${o.ic}</span>${o.l}</button>`).join('')}</div>
-        ${r.outcome === 'referred' ? `<label class="lb">Referred to which organisation?</label><input class="i" style="width:100%" list="reforgs" data-f="referral" data-i="${i}" value="${esc(r.referral)}" placeholder="e.g. SEDA, SASSA, Home Affairs">` : ''}
+        ${r.outcome === 'referred' ? `<label class="lb">Referred to which organisation?</label><input class="i" style="width:100%" list="reforgs" data-f="referral" data-i="${i}" value="${esc(r.referral)}" placeholder="e.g. Local clinic, optometrist, GP">` : ''}
         ${r.outcome === 'follow_up' ? `<label class="lb">Follow up on</label><input class="i" type="date" data-f="follow" data-i="${i}" value="${esc(r.follow)}">` : ''}
-        <label class="lb">What did you do? <span class="faint" style="font-weight:500">(optional)</span></label>
-        <input class="i" style="width:100%" data-f="provided" data-i="${i}" value="${esc(r.provided)}" placeholder="${r.outcome === 'unable' ? 'Why could we not help?' : 'e.g. Helped write and print a CV'}">
+        ${r.outcome !== 'unable' ? measBlock(r, i) : ''}
+        <label class="lb">${measOf(r.category_id) ? 'Advice given / comments' : 'What did you do?'} <span class="faint" style="font-weight:500">(optional)</span></label>
+        <input class="i" style="width:100%" data-f="provided" data-i="${i}" value="${esc(r.provided)}" placeholder="${r.outcome === 'unable' ? 'Why could we not help?' : 'e.g. Advised to cut down on salt and re-test at the clinic'}">
       </div>`).join('') || '<div class="faint">No services yet. Add the service you provided below.</div>';
     body.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { rows[+b.dataset.i].outcome = b.dataset.o; draw(); });
     body.querySelectorAll('[data-f]').forEach(el => el.oninput = () => { rows[+el.dataset.i][el.dataset.f] = el.value; });
+    body.querySelectorAll('[data-m]').forEach(el => { const h = () => { rows[+el.dataset.i].readings[el.dataset.m] = el.value; refreshFlags(+el.dataset.i); }; el.oninput = h; el.onchange = h; });
     body.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { rows.splice(+b.dataset.rm, 1); draw(); drawAdd(); });
   };
   const drawAdd = () => {
@@ -622,7 +691,7 @@ async function recordVisit(id, onSaved) {
     el.innerHTML = left.length ? left.map(c => `<button type="button" class="addchip" data-add="${c.id}">+ ${esc(c.icon || '')} ${esc(c.name)}</button>`).join('') : '<span class="faint">All services added.</span>';
     el.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
       const p = A.ref.progs.find(x => x.category_id === b.dataset.add && x.active);
-      rows.push({ id: null, category_id: b.dataset.add, outcome: 'completed', provided: '', referral: '', follow: '', programme_id: p ? p.id : null });
+      rows.push({ id: null, category_id: b.dataset.add, outcome: 'completed', provided: '', referral: '', follow: '', programme_id: p ? p.id : null, readings: {} });
       draw(); drawAdd();
     });
   };
@@ -640,7 +709,7 @@ async function recordVisit(id, onSaved) {
     <label class="lb" style="margin-top:16px">Did you also help with something else?</label><div id="rec_add" class="addchips"></div>
     <label class="lb" style="margin-top:16px">Note <span class="faint" style="font-weight:500">(optional, only seen by staff)</span></label>
     <textarea class="i" id="rec_note" placeholder="Anything the team should know for next time"></textarea>
-    <datalist id="reforgs">${['SEDA', 'SEFA', 'SASSA', 'NYDA', 'Department of Employment & Labour', 'Legal Aid SA', 'Local clinic', 'Home Affairs'].map(x => `<option value="${x}">`).join('')}</datalist>`,
+    <datalist id="reforgs">${['Local clinic', 'Day hospital', 'GP / Doctor', 'Optometrist', 'Audiologist', 'Dentist', 'Dietitian', 'Hospital'].map(x => `<option value="${x}">`).join('')}</datalist>`,
   { wide: true, saveLabel: 'Save', save: async () => {
     if (!rows.length) { toast('Add at least one service you provided', true); return false; }
     const bad = rows.find(r => r.outcome === 'referred' && !r.referral.trim());
@@ -649,6 +718,7 @@ async function recordVisit(id, onSaved) {
     for (const r of rows) {
       const upd = { status: r.outcome, service_provided: r.provided.trim() || null, referral_org: r.outcome === 'referred' ? r.referral.trim() : null,
                     follow_up_date: r.outcome === 'follow_up' ? (r.follow || null) : null, resolved: r.outcome === 'completed' || r.outcome === 'referred' ? true : r.outcome === 'unable' ? false : null,
+                    readings: r.outcome === 'unable' ? null : cleanReadings(measOf(r.category_id), calcReadings(measOf(r.category_id) || { fields: [] }, r.readings || {})),
                     assigned_member_id: A.m.member_id, updated_by: A.m.member_id };
       if (r.id) await q(sb.from('visit_services').update(upd).eq('id', r.id));
       else await q(sb.from('visit_services').insert(Object.assign({ org_id: v.org_id, visit_id: v.id, category_id: r.category_id, is_available: true, programme_id: r.programme_id }, upd)));
@@ -687,7 +757,7 @@ async function openVisit(id) {
     const v = await q(sb.from('visits').select(VISIT_SELECT).eq('id', id).single());
     const [notes, history] = await Promise.all([
       q(sb.from('visit_notes').select('*').eq('visit_id', id).order('created_at')),
-      q(sb.from('visits').select('id, hub_id, visited_at, ticket_no, status, visit_services(category_id, status, service_provided, referral_org), feedback(rating)').eq('visitor_id', v.visitor_id).order('visited_at', { ascending: false }).limit(50))
+      q(sb.from('visits').select('id, hub_id, visited_at, ticket_no, status, visit_services(category_id, status, service_provided, referral_org, readings), feedback(rating)').eq('visitor_id', v.visitor_id).order('visited_at', { ascending: false }).limit(50))
     ]);
     renderVisit(d, v, notes, history);
   } catch (e) { fail(e); closeDrawer(); }
@@ -731,6 +801,7 @@ function renderVisit(d, v, notes, history) {
       <div class="timeline">${svcs.map(s => `<div class="svcline">
           <div>${chip(outcome(s.status), outcomeColour(s.status))}</div>
           <div><b>${esc((byId(A.ref.cats, s.category_id) || {}).icon || '')} ${esc(nameOf(A.ref.cats, s.category_id))}</b>${s.referral_org ? ' → ' + esc(s.referral_org) : ''}${s.follow_up_date ? ' · follow up ' + fmtDate(s.follow_up_date) : ''}
+            ${readingLine(s.category_id, s.readings)}
             ${s.service_provided ? `<div class="muted" style="font-size:13px">${esc(s.service_provided)}</div>` : ''}
             ${s.assigned_member_id && !isPending(s) ? `<div class="faint" style="font-size:12px">by ${esc(memberName(s.assigned_member_id))}</div>` : ''}</div></div>`).join('') || '<div class="faint">No services recorded.</div>'}</div>
     </div>
@@ -753,8 +824,10 @@ function renderVisit(d, v, notes, history) {
     <div class="card"><h3>Visit history</h3><div class="sub">${history.length} visit${history.length === 1 ? '' : 's'} since ${fmtDate(vi.created_at)}</div>
       <div class="timeline">${history.map(h => `<div class="tl"><div class="d">${fmtDate(h.visited_at)}</div><div>
         <div style="font-weight:600">${h.id === v.id ? esc(nameOf(A.ref.hubs, h.hub_id)) + ' <span class="badge">This visit</span>' : `<a href="#" data-visit="${h.id}">${esc(nameOf(A.ref.hubs, h.hub_id))}</a>`}</div>
-        <div>${(h.visit_services || []).map(s => chip(nameOf(A.ref.cats, s.category_id) + (s.referral_org ? ' → ' + s.referral_org : ''), outcomeColour(s.status))).join('')}</div></div></div>`).join('')}</div>
+        <div>${(h.visit_services || []).map(s => chip(nameOf(A.ref.cats, s.category_id) + (s.referral_org ? ' → ' + s.referral_org : ''), outcomeColour(s.status))).join('')}</div>
+        ${(h.visit_services || []).filter(s => s.readings).map(s => `<div style="font-size:12.5px;margin-top:3px"><span class="faint">${esc(nameOf(A.ref.cats, s.category_id))}:</span> ${esc(readingText(s.category_id, s.readings))} ${readingFlags(s.category_id, s.readings)}</div>`).join('')}</div></div>`).join('')}</div>
     </div>
+    ${resultsHistory(history)}
   </div>`;
 
   const refresh = () => openVisit(v.id);
@@ -880,11 +953,23 @@ async function downloadVisitors(term) {
   } finally { btn.disabled = false; btn.textContent = label; }
 }
 
+/* Screening results over time — one small table per test, newest first */
+function resultsHistory(visits) {
+  const byCat = {};
+  (visits || []).forEach(v => (v.visit_services || []).forEach(s => { if (s.readings && measOf(s.category_id)) (byCat[s.category_id] = byCat[s.category_id] || []).push({ at: v.visited_at, hub: v.hub_id, r: s.readings }); }));
+  const cats = A.ref.cats.filter(c => byCat[c.id]);
+  if (!cats.length) return '';
+  return `<div class="card"><h3>Screening results over time</h3><div class="sub">Health information — only seen by authorised staff. Flags compare results with common screening ranges; they are not a diagnosis.</div>
+    ${cats.map(c => { const m = measOf(c.id); const cols = m.fields.filter(f => f.type !== 'choice' || m.fields.length < 4);
+      return `<h4 style="margin:14px 0 6px">${esc(c.icon || '')} ${esc(c.name)}</h4><div style="overflow-x:auto"><table class="trend"><thead><tr><th>Date</th>${cols.map(f => `<th>${esc(f.label.replace(' (optional)', ''))}${f.unit ? ` <span class="faint">${esc(f.unit)}</span>` : ''}</th>`).join('')}<th>Service event</th></tr></thead><tbody>
+        ${byCat[c.id].sort((a, b) => b.at.localeCompare(a.at)).map(x => `<tr><td>${fmtDate(x.at)}</td>${cols.map(f => `<td>${x.r[f.k] == null ? '—' : esc(x.r[f.k])} ${f.type === 'choice' ? '' : flagTag(bandOf(f, x.r))}${f.type === 'choice' && (f.flags || {})[x.r[f.k]] ? flagTag(bandOf(f, x.r)).replace(esc(x.r[f.k]), '!') : ''}</td>`).join('')}<td class="faint">${esc(nameOf(A.ref.hubs, x.hub))}</td></tr>`).join('')}</tbody></table></div>`; }).join('')}</div>`;
+}
+
 async function openVisitor(id) {
   const d = drawer('<div class="spin"></div>');
   try {
     const vi = await q(sb.from('visitors').select('*').eq('id', id).single());
-    const visits = await q(sb.from('visits').select('id, hub_id, visited_at, ticket_no, status, need_description, visit_services(category_id, status, service_provided, referral_org, programme_id), feedback(rating, improve)').eq('visitor_id', id).order('visited_at', { ascending: false }));
+    const visits = await q(sb.from('visits').select('id, hub_id, visited_at, ticket_no, status, need_description, visit_services(category_id, status, service_provided, referral_org, programme_id, readings), feedback(rating, improve)').eq('visitor_id', id).order('visited_at', { ascending: false }));
     const svcs = visits.flatMap(v => v.visit_services || []);
     const ratings = visits.map(fbOf).filter(f => f && f.rating).map(f => f.rating);
     d.innerHTML = `
@@ -902,6 +987,7 @@ async function openVisitor(id) {
             <div style="font-weight:600"><a href="#" data-visit="${h.id}">${esc(nameOf(A.ref.hubs, h.hub_id))} · ticket ${esc(h.ticket_no)}</a> <span class="faint">${esc(VISIT_STATUS[h.status])}</span></div>
             <div>${(h.visit_services || []).map(s => chip(nameOf(A.ref.cats, s.category_id) + (s.referral_org ? ' → ' + s.referral_org : ''), STATUS[s.status].c)).join('')}</div>
             ${h.need_description ? `<div class="faint" style="font-size:12.5px">“${esc(h.need_description)}”</div>` : ''}</div></div>`).join('')}</div></div>
+        ${resultsHistory(visits)}
         ${can(MANAGERS) && !vi.anonymised_at ? `<div class="card"><h3>Record management (POPIA)</h3><div class="sub">Correct details, or anonymise when the visitor asks to be removed or the retention period has passed. Anonymising keeps the statistics but removes name, mobile, email, notes and comments. It cannot be undone.</div>
           <div class="row"><button class="btn sm sec" id="editV">Edit details</button><button class="btn sm danger" id="anonV">Anonymise visitor</button></div></div>` : ''}
       </div>`;
