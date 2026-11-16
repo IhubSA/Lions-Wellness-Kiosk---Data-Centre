@@ -215,7 +215,7 @@
 const CFG = window.NPO_HUB_CONFIG;
 const sb = supabase.createClient(CFG.url, CFG.key, { db: { schema: CFG.schema }, auth: { storageKey: 'npohub-staff-auth', persistSession: true } });
 
-const ROLE_LABEL = { super_admin: 'Super Administrator', management: 'Management', hub_manager: 'Hub Manager', hub_staff: 'Hub Staff', programme_manager: 'Programme Manager', donor_viewer: 'Donor Viewer' };
+const ROLE_LABEL = { super_admin: 'Super Administrator', management: 'Management', hub_manager: 'Service Event Manager', hub_staff: 'Service Event Staff', programme_manager: 'Programme Manager', donor_viewer: 'Donor Viewer' };
 const STATUS = {
   awaiting:    { label: 'Not yet recorded', c: 'var(--st-awaiting)' },
   in_progress: { label: 'Not yet recorded', c: 'var(--st-awaiting)' },
@@ -240,7 +240,7 @@ async function ensureTown(region, name) {
   return t;
 }
 const allocHubIds = a => { const ids = A.ref.allocHubs.filter(x => x.allocation_id === a.id).map(x => x.hub_id); return ids.length ? ids : (a.hub_id ? [a.hub_id] : []); };
-const allocHubLabel = a => { const ids = allocHubIds(a); return ids.length ? ids.map(id => nameOf(A.ref.hubs, id).replace(' Community Hub', '')).join(', ') : 'All hubs'; };
+const allocHubLabel = a => { const ids = allocHubIds(a); return ids.length ? ids.map(id => nameOf(A.ref.hubs, id).replace(' Community Hub', '')).join(', ') : 'All service events'; };
 const townsIn = provName => { const r = A.ref.regions.find(x => x.name === provName); return r ? A.ref.towns.filter(t => t.region_id === r.id).map(t => t.name).sort() : []; };
 const STAFF = ['super_admin', 'management', 'hub_manager', 'hub_staff', 'programme_manager'];
 const MANAGERS = ['super_admin', 'management'];
@@ -318,10 +318,10 @@ function renderAuth(mode = 'login', msg = '') {
     <div class="art">
       <div class="logo-card"><img src="cimp-logo.png" alt="Lions Clubs International — We Serve"></div>
       <div>
-        <p class="tagline">People <b>•</b> Evidence <b>•</b> Greater Impact</p>
+        <p class="tagline">We Serve <b>•</b> Healthier Communities</p>
         <h1>${esc(CFG.fullName || CFG.appName)}</h1>
-        <p>Register community members at every Hub, record the help they receive, collect their feedback and turn it into monitoring, evaluation and learning evidence your donors can trust.</p>
-        <ul><li>Tablet kiosk sign-in at every Hub</li><li>Simple service recording for Community Liaison Officers</li><li>Dashboards across provinces, towns, Hubs & programmes</li><li>Donor impact reports in PDF & Excel</li><li>Built for POPIA from day one</li></ul>
+        <p>Sign in members of the public at every Lions Wellness Day, record the screenings they receive, collect their feedback and turn it into clear evidence of the difference your club makes.</p>
+        <ul><li>Tablet kiosk sign-in at every Wellness Day</li><li>Quick screening records for Lions volunteers</li><li>Dashboards across provinces, towns and events</li><li>Impact reports for sponsors in PDF & Excel</li><li>Built for POPIA from day one</li></ul>
       </div>
       <div style="font-size:13px;opacity:.7">Powered by iHubSA · Turning Business Problems Into Digital Solutions</div>
     </div>
@@ -336,7 +336,7 @@ function renderAuth(mode = 'login', msg = '') {
       <button class="btn" style="width:100%;padding:12px" id="go">Sign in</button>
       <div class="row" style="justify-content:space-between;margin-top:16px;font-size:14px">
         <a href="#" id="toSignup">First time? Create your account</a><a href="#" id="toReset">Forgot password?</a></div>
-      <p class="faint" style="font-size:12.5px;margin-top:26px">Setting up a tablet? Open the <a href="kiosk.html?setup">kiosk set-up page</a> on the tablet and paste the Hub's kiosk link (from Administration → Hubs & kiosks).</p>`;
+      <p class="faint" style="font-size:12.5px;margin-top:26px">Setting up a tablet? Open the <a href="kiosk.html?setup">kiosk set-up page</a> on the tablet and paste the service event's kiosk link (from Administration → Service events & kiosks).</p>`;
     const go = async () => {
       $('am').textContent = '';
       const { error } = await sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value });
@@ -527,7 +527,7 @@ async function vQueue() {
   if (QS.hub && !hubs.find(h => h.id === QS.hub)) QS.hub = '';
   if (!QS.hub && hubs.length === 1) QS.hub = hubs[0].id;
   $('tools').innerHTML = `
-    <select class="i" id="qhub">${opts(hubs, QS.hub, hubs.length > 1 ? 'All my hubs' : null)}</select>
+    <select class="i" id="qhub">${opts(hubs, QS.hub, hubs.length > 1 ? 'All my service events' : null)}</select>
     <label class="row" style="gap:6px;font-size:13px;color:var(--muted)"><input type="checkbox" id="qsound" ${A.sound ? 'checked' : ''}> Sound when someone signs in</label>
     <button class="btn" id="walkin">+ Add a visitor</button>`;
   $('qhub').onchange = e => { QS.hub = e.target.value; loadQueue(true); };
@@ -540,7 +540,7 @@ async function vQueue() {
 
 async function loadQueue(first) {
   const hubIds = QS.hub ? [QS.hub] : myHubs().map(h => h.id);
-  if (!hubIds.length) { $('page').innerHTML = '<div class="empty">You are not assigned to any Hub yet. Ask your administrator to allocate you to a Hub.</div>'; return; }
+  if (!hubIds.length) { $('page').innerHTML = '<div class="empty">You are not assigned to any service event yet. Ask your administrator to allocate you to a service event.</div>'; return; }
   const since = new Date(Date.now() - 30 * 864e5).toISOString();
   const startToday = new Date(today() + 'T00:00:00+02:00').toISOString();
   const rows = await q(sb.from('visits').select(VISIT_SELECT).eq('org_id', A.m.org_id).in('hub_id', hubIds)
@@ -634,7 +634,7 @@ async function recordVisit(id, onSaved) {
       <button class="linkbtn" id="rec_hist" style="margin-left:auto">Visit history</button>
     </div>
     ${v.need_description ? `<div class="note" style="margin-top:12px"><b>${esc(first)} said:</b> “${esc(v.need_description)}”</div>` : ''}
-    ${unmet.length ? `<div class="note warn" style="margin-top:8px">Also asked for (not offered at this Hub — recorded as an unmet need): ${unmet.map(s => esc(nameOf(A.ref.cats, s.category_id))).join(', ')}</div>` : ''}
+    ${unmet.length ? `<div class="note warn" style="margin-top:8px">Also asked for (not offered at this service event — recorded as an unmet need): ${unmet.map(s => esc(nameOf(A.ref.cats, s.category_id))).join(', ')}</div>` : ''}
     <h4 style="margin:18px 0 8px">What help did ${esc(first)} get?</h4>
     <div id="rec_body" class="grid" style="gap:10px"></div>
     <label class="lb" style="margin-top:16px">Did you also help with something else?</label><div id="rec_add" class="addchips"></div>
@@ -723,7 +723,7 @@ function renderVisit(d, v, notes, history) {
       <div><div class="faint" style="font-size:12px">Gender</div>${esc(vi.gender || '—')}</div>
       <div><div class="faint" style="font-size:12px">This visit</div>${esc(stateLabel)}</div></div>
       ${v.need_description ? `<div class="note" style="margin-top:12px"><b>What they needed:</b> ${esc(v.need_description)}</div>` : ''}
-      ${unmet.length ? `<div class="note warn" style="margin-top:8px"><b>Not offered at this Hub (unmet need):</b> ${unmet.map(s => esc(nameOf(A.ref.cats, s.category_id))).join(', ')}${v.unmet_other ? ' · ' + esc(v.unmet_other) : ''}</div>` : (v.unmet_other ? `<div class="note warn" style="margin-top:8px"><b>Other unmet need:</b> ${esc(v.unmet_other)}</div>` : '')}
+      ${unmet.length ? `<div class="note warn" style="margin-top:8px"><b>Not offered at this service event (unmet need):</b> ${unmet.map(s => esc(nameOf(A.ref.cats, s.category_id))).join(', ')}${v.unmet_other ? ' · ' + esc(v.unmet_other) : ''}</div>` : (v.unmet_other ? `<div class="note warn" style="margin-top:8px"><b>Other unmet need:</b> ${esc(v.unmet_other)}</div>` : '')}
     </div>
 
     <div class="card"><div class="row" style="justify-content:space-between;margin-bottom:8px"><h3 style="margin:0">Services</h3>
@@ -744,7 +744,7 @@ function renderVisit(d, v, notes, history) {
         <div class="row"><button class="btn sm sec" id="fbOpen">Hand over this device for feedback</button><button class="btn sm sec" id="fbCopy">Copy feedback link</button></div>`}
     </div>
 
-    <div class="card"><h3>Notes</h3><div class="sub">Only seen by staff with access to this Hub.</div>
+    <div class="card"><h3>Notes</h3><div class="sub">Only seen by staff with access to this service event.</div>
       <div class="timeline">${notes.map(n => `<div class="tl"><div class="d">${fmtDate(n.created_at)}<br>${fmtTime(n.created_at)}</div><div><b>${esc(memberName(n.member_id))}</b><br>${esc(n.note)}</div></div>`).join('') || '<div class="faint">No notes yet.</div>'}</div>
       ${editable ? `<textarea class="i" id="note" placeholder="Add a note about this visitor" style="margin-top:12px"></textarea>
       <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn sm" id="addnote">Add note</button></div>` : ''}
@@ -772,12 +772,12 @@ function renderVisit(d, v, notes, history) {
 /* ---------- walk-in registration ---------- */
 function walkIn() {
   const hubs = myHubs().filter(h => can(MANAGERS) || (A.m.hub_ids || []).includes(h.id));
-  if (!hubs.length) return toast('You need to be assigned to a Hub to add visitors', true);
+  if (!hubs.length) return toast('You need to be assigned to a service event to add visitors', true);
   const st = { services: new Set() };
   const w = modal('Add a visitor', `
     <div class="note" style="margin-top:12px">Use this when someone can't use the tablet. Read the privacy notice to them and record their consent.</div>
     <div class="fld grid g2" style="gap:0 14px">
-      <div><label class="lb">Hub</label><select class="i" id="w_hub">${opts(hubs, QS.hub || hubs[0].id)}</select></div>
+      <div><label class="lb">Service event</label><select class="i" id="w_hub">${opts(hubs, QS.hub || hubs[0].id)}</select></div>
       <div><label class="lb">Mobile number</label><input class="i" id="w_mobile" inputmode="tel" placeholder="082 123 4567"></div>
       <div><label class="lb">Name and surname</label><input class="i" id="w_name"></div>
       <div><label class="lb">Email (optional)</label><input class="i" id="w_email" type="email"></div>
@@ -825,7 +825,7 @@ async function vVisitors() {
     if (term) qq = qq.or(`full_name.ilike.*${term}*,mobile.ilike.*${term.replace(/\D/g, '') || term}*`);
     const rows = await q(qq);
     $('page').innerHTML = `
-      <div class="note" style="margin-bottom:14px">Personal information is restricted to staff of the Hubs a visitor has attended. ${can(MANAGERS) ? 'Management can correct records and anonymise a visitor on request (POPIA).' : ''}</div>
+      <div class="note" style="margin-bottom:14px">Personal information is restricted to staff of the service events a visitor has attended. ${can(MANAGERS) ? 'Management can correct records and anonymise a visitor on request (POPIA).' : ''}</div>
       <div class="card" style="padding:0;overflow:auto"><table class="t"><thead><tr><th>Name</th><th>Mobile</th><th>Community</th><th>Age group</th><th>Gender</th><th class="n">Visits</th><th>First seen</th><th>Last visit</th></tr></thead>
       <tbody>${rows.map(r => `<tr class="click" data-id="${r.id}"><td><b>${esc(r.full_name)}</b> ${r.is_minor ? '<span class="badge minor">U18</span>' : ''}${r.anonymised_at ? '<span class="badge grey">Anonymised</span>' : ''}</td>
         <td>${esc(r.anonymised_at ? '—' : r.mobile)}</td><td>${esc(r.community || '—')}</td><td>${esc(r.age_group || '—')}</td><td>${esc(r.gender || '—')}</td>
@@ -850,7 +850,7 @@ async function downloadVisitors(term) {
     }
     if (!all.length) { toast('No visitors to download', true); return; }
     const d = x => x ? new Date(x) : '';
-    const head = ['Name', 'Mobile', 'Email', 'Community', 'Age group', 'Gender', 'Under 18', 'Guardian consent', 'First Hub', 'Visits', 'First seen', 'Last visit', 'Consent given', 'Privacy notice version', 'Status'];
+    const head = ['Name', 'Mobile', 'Email', 'Community', 'Age group', 'Gender', 'Under 18', 'Guardian consent', 'First service event', 'Visits', 'First seen', 'Last visit', 'Consent given', 'Privacy notice version', 'Status'];
     const body = all.map(r => {
       const anon = !!r.anonymised_at;
       return [r.full_name, anon ? '' : (r.mobile || ''), anon ? '' : (r.email || ''), r.community || '', r.age_group || '', r.gender || '',
@@ -1013,7 +1013,7 @@ async function vDashboard() {
       <span class="lbl">To</span><input class="i" type="date" id="f_to" value="${DF.to}">
       <select class="i" id="f_region">${opts(A.ref.regions, DF.region, 'All provinces', r => r.name + (A.ref.hubs.some(h => h.region_id === r.id) ? '' : ' (no hubs)'))}</select>
       <select class="i" id="f_town">${sopts(uniq(hubs.filter(h => !DF.region || h.region_id === DF.region).map(h => h.town).filter(Boolean)).sort(), DF.town, 'All towns')}</select>
-      <select class="i" id="f_hub">${opts(hubs.filter(h => (!DF.region || h.region_id === DF.region) && (!DF.town || h.town === DF.town)), DF.hub, 'All hubs')}</select>
+      <select class="i" id="f_hub">${opts(hubs.filter(h => (!DF.region || h.region_id === DF.region) && (!DF.town || h.town === DF.town)), DF.hub, 'All service events')}</select>
       <select class="i" id="f_prog">${opts(A.ref.progs, DF.prog, 'All programmes')}</select>
       <select class="i" id="f_cat">${opts(A.ref.cats, DF.cat, 'All services')}</select>
       <select class="i" id="f_gender">${sopts(GENDERS, DF.gender, 'All genders')}</select>
@@ -1062,8 +1062,8 @@ async function drawDashboard() {
   const kpi = (l, v, h) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div>${h ? `<div class="h">${h}</div>` : ''}</div>`;
   body.innerHTML = `
     <div class="kpis">
-      ${kpi('Total visits', fmtN(M.visits), 'All Hub visits in period')}
-      ${kpi('Unique beneficiaries', fmtN(M.unique), fmtN(M.newBen) + ' new to the Hubs')}
+      ${kpi('Total visits', fmtN(M.visits), 'All service event visits in period')}
+      ${kpi('Unique beneficiaries', fmtN(M.unique), fmtN(M.newBen) + ' new to the service events')}
       ${kpi('Repeat visitors', fmtN(M.repeatVisitors), fmtPct(pct(M.repeatVisitors, M.unique)) + ' of beneficiaries')}
       ${kpi('Services requested', fmtN(M.requested), fmtN(M.unmet) + ' not offered (unmet)')}
       ${kpi('Services provided', fmtN(M.delivered), 'Provided or referred')}
@@ -1076,14 +1076,14 @@ async function drawDashboard() {
     <div class="grid g2">
       <div class="card"><h3>Visits and unique beneficiaries per month</h3><div class="sub">Each bar counts visits; the line counts different people</div><div class="chartbox"><canvas id="c1"></canvas></div></div>
       <div class="card"><h3>Services requested vs provided</h3><div class="sub">By service category (provided includes referrals)</div><div class="chartbox"><canvas id="c2"></canvas></div></div>
-      <div class="card"><h3>Hub comparison</h3><div class="sub">Visits per Hub</div><div class="chartbox"><canvas id="c3"></canvas></div>
-        <table class="t" style="margin-top:12px"><thead><tr><th>Hub</th><th class="n">Visits</th><th class="n">Beneficiaries</th><th class="n">Resolution</th><th class="n">Rating</th></tr></thead><tbody>
+      <div class="card"><h3>Service event comparison</h3><div class="sub">Visits per service event</div><div class="chartbox"><canvas id="c3"></canvas></div>
+        <table class="t" style="margin-top:12px"><thead><tr><th>Service event</th><th class="n">Visits</th><th class="n">Beneficiaries</th><th class="n">Resolution</th><th class="n">Rating</th></tr></thead><tbody>
         ${hubsShown.map(h => { const m = metrics(rows.filter(r => r.hub_id === h.id)); return `<tr><td>${esc(h.name)}</td><td class="n">${fmtN(m.visits)}</td><td class="n">${fmtN(m.unique)}</td><td class="n">${fmtPct(m.resolution)}</td><td class="n">${m.avgRating ? m.avgRating.toFixed(2) : '–'}</td></tr>`; }).join('')}</tbody></table></div>
-      <div class="card"><h3>Service outcomes</h3><div class="sub">What happened to each service at the Hub where it is offered</div><div class="chartbox"><canvas id="c4"></canvas></div></div>
+      <div class="card"><h3>Service outcomes</h3><div class="sub">What happened to each service at the service event where it is offered</div><div class="chartbox"><canvas id="c4"></canvas></div></div>
       <div class="card"><h3>Top communities reached</h3><div class="sub">Unique beneficiaries by home community</div><div class="chartbox tall"><canvas id="c5"></canvas></div></div>
       <div class="card"><h3>Who we are reaching</h3><div class="sub">Unique beneficiaries by age group and gender</div>
         <div class="grid g2" style="gap:12px"><div class="chartbox"><canvas id="c6"></canvas></div><div class="chartbox"><canvas id="c7"></canvas></div></div></div>
-      <div class="card" style="grid-column:1/-1"><h3>Unmet community needs</h3><div class="sub">Services visitors asked for that their Hub does not offer — evidence for new programmes and funding applications</div>
+      <div class="card" style="grid-column:1/-1"><h3>Unmet community needs</h3><div class="sub">Services visitors asked for that their service event does not offer — evidence for new programmes and funding applications</div>
         ${unmet.length ? `<div class="chartbox" style="height:${Math.max(140, unmet.length * 40)}px"><canvas id="c8"></canvas></div>` : '<div class="faint">No unmet needs recorded for this selection.</div>'}</div>
     </div>`;
   chart('c1', 'bar', months.map(monthLabel), [
@@ -1132,7 +1132,7 @@ function renderReport(el, rep) {
     ${rep.summary && rep.summary.length ? `<div class="summary">${rep.summary.map(p => `<p>${esc(p)}</p>`).join('')}</div>` : ''}
     ${rep.chart ? `<h4>${esc(rep.chart.title || '')}</h4><div class="chartbox" style="height:${rep.chart.height || 280}px"><canvas id="repchart"></canvas></div>` : ''}
     ${reportTablesHtml(rep.tables || [])}
-    ${rep.narratives && rep.narratives.length ? `<h4 style="margin-top:26px">Hub narratives</h4>
+    ${rep.narratives && rep.narratives.length ? `<h4 style="margin-top:26px">Service event narratives</h4>
       <div class="faint" style="font-size:12.5px;margin-bottom:10px">Written automatically from the figures. Click any paragraph to edit it before you export — the PDF and Excel use your wording.</div>
       ${rep.narratives.map((n, i) => `<div class="card narr">
         <div class="row" style="justify-content:space-between;align-items:flex-start"><h3 style="margin:0">${esc(n.title)}</h3>
@@ -1201,7 +1201,7 @@ function exportPDF(rep) {
   });
   if (rep.narratives && rep.narratives.length) {
     if (y > 700) { doc.addPage(); y = 50; }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(20, 32, 31); doc.text('Hub narratives', M, y); y += 18;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(20, 32, 31); doc.text('Service event narratives', M, y); y += 18;
     rep.narratives.forEach(n => {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
       const lines = doc.splitTextToSize(n.text || '', W - 2 * M - 24);
@@ -1236,9 +1236,9 @@ function exportXLSX(rep) {
   const ws = XLSX.utils.aoa_to_sheet(summary); ws['!cols'] = [{ wch: 40 }, { wch: 22 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Summary');
   if (rep.narratives && rep.narratives.length) {
-    const ns = XLSX.utils.aoa_to_sheet([['Hub', ...rep.narratives[0].stats.map(x => x[0]), 'Funding', 'Narrative'], ...rep.narratives.map(n => [n.title, ...n.stats.map(x => x[1]), n.funding || '', n.text])]);
+    const ns = XLSX.utils.aoa_to_sheet([['Service event', ...rep.narratives[0].stats.map(x => x[0]), 'Funding', 'Narrative'], ...rep.narratives.map(n => [n.title, ...n.stats.map(x => x[1]), n.funding || '', n.text])]);
     ns['!cols'] = [{ wch: 32 }, ...rep.narratives[0].stats.map(() => ({ wch: 13 })), { wch: 40 }, { wch: 110 }];
-    XLSX.utils.book_append_sheet(wb, ns, 'Hub narratives');
+    XLSX.utils.book_append_sheet(wb, ns, 'Service event narratives');
   }
   (rep.tables || []).forEach((t, i) => {
     const s = XLSX.utils.aoa_to_sheet([t.cols, ...t.rows.map(r => r.map(v => (typeof v === 'string' && /^-?\d[\d\s\u00a0\u202f]*(\.\d+)?$/.test(v)) ? Number(v.replace(/[\s\u00a0\u202f]/g, '')) : v))]);
@@ -1263,7 +1263,7 @@ async function vDonor() {
       ${role() === 'donor_viewer' ? `<b>${esc(nameOf(donors, DD.donor))}</b>` : `<span class="lbl">Donor</span><select class="i" id="d_donor">${opts(donors, DD.donor)}</select>`}
       <span class="lbl">From</span><input class="i" type="date" id="d_from" value="${DD.from}">
       <span class="lbl">To</span><input class="i" type="date" id="d_to" value="${DD.to}">
-      <span class="faint" style="font-size:12.5px">Only services linked to this donor's funded programmes, Hubs and funding dates are counted.</span>
+      <span class="faint" style="font-size:12.5px">Only services linked to this donor's funded programmes, service events and funding dates are counted.</span>
       <div style="flex-basis:100%;height:0"></div>
       <span class="lbl">Programmes</span><div class="addchips" id="d_progs"></div>
     </div><div id="dout"><div class="spin"></div></div>`;
@@ -1313,12 +1313,12 @@ function hubNarrative(h, donorName) {
   if (h.follow_up) out.push(`${plural(h.follow_up, 'case needs', 'cases need')} follow-up`);
   if (out.length) parts.push(listAnd(out).replace(/^./, c => c.toUpperCase()) + '.');
   if (h.pending) parts.push(`${plural(h.pending, 'service is', 'services are')} still to be recorded by staff.`);
-  if (h.unable) parts.push(`The Hub was unable to assist with ${plural(h.unable, 'request')}.`);
+  if (h.unable) parts.push(`The service event was unable to assist with ${plural(h.unable, 'request')}.`);
   parts.push(h.feedback ? `Visitors rated the service ${Number(h.avg_rating).toFixed(1)} out of 5 across ${plural(h.feedback, 'feedback response')}.` : 'No visitor feedback has been received yet.');
   if (h.top_communities && h.top_communities.length) parts.push(`Most beneficiaries came from ${listAnd(h.top_communities)}.`);
   return parts.join(' ');
 }
-const hubFundingLine = h => (h.funding || []).map(f => `${fmtR(f.amount)} ${f.programme}${f.hubs > 1 ? ` (shared across ${f.hubs} Hubs)` : f.hubs === 1 ? '' : ' (all Hubs)'}`).join(' · ');
+const hubFundingLine = h => (h.funding || []).map(f => `${fmtR(f.amount)} ${f.programme}${f.hubs > 1 ? ` (shared across ${f.hubs} service events)` : f.hubs === 1 ? '' : ' (all service events)'}`).join(' · ');
 function donorReport(r) {
   const T = r.totals || {};
   const months = (r.by_month || []);
@@ -1329,19 +1329,19 @@ function donorReport(r) {
     kpis: [['Funding allocated', fmtR(r.total_funding)], ['Unique beneficiaries', fmtN(T.unique_beneficiaries)], ['Service interactions', fmtN(T.interactions)],
            ['New beneficiaries', fmtN(T.new_beneficiaries)], ['Services provided', fmtN(T.completed)], ['Referrals', fmtN(T.referred)],
            ['Requests resolved', fmtPct(T.resolved_pct)], ['Avg satisfaction', T.avg_rating ? Number(T.avg_rating).toFixed(2) + '/5' : '–'],
-           ['Hubs reached', fmtN(T.hubs_reached)], ['Communities reached', fmtN(T.communities_reached)]],
+           ['Service events reached', fmtN(T.hubs_reached)], ['Communities reached', fmtN(T.communities_reached)]],
     summary: [
-      `${r.donor ? r.donor.name : 'This donor'} contributed ${fmtR(r.total_funding)} to ${A.ref.org.name}. Between ${fmtDate(r.period.from)} and ${fmtDate(r.period.to)}, the funded programmes reached ${fmtN(T.unique_beneficiaries)} unique beneficiaries across ${fmtN(T.hubs_reached)} Hubs and ${fmtN(T.communities_reached)} communities, through ${fmtN(T.interactions)} recorded service interactions.`,
+      `${r.donor ? r.donor.name : 'This donor'} contributed ${fmtR(r.total_funding)} to ${A.ref.org.name}. Between ${fmtDate(r.period.from)} and ${fmtDate(r.period.to)}, the funded programmes reached ${fmtN(T.unique_beneficiaries)} unique beneficiaries across ${fmtN(T.hubs_reached)} Service events and ${fmtN(T.communities_reached)} communities, through ${fmtN(T.interactions)} recorded service interactions.`,
       ...progLines,
       `${fmtPct(T.resolved_pct)} of actioned requests were resolved, either directly or by referral, and beneficiaries gave an average satisfaction rating of ${T.avg_rating ? Number(T.avg_rating).toFixed(1) : '–'}/5 across ${fmtN(T.feedback_count)} feedback responses.` +
         (perBen ? ` This equates to ${fmtR(perBen)} of funding per beneficiary reached so far.` : '')
     ],
     chart: { title: 'People reached per month', labels: months.map(m => monthLabel(m.label)), datasets: [{ label: 'Service interactions', data: months.map(m => m.value) }, { label: 'Unique beneficiaries', type: 'line', data: months.map(m => m.unique) }] },
     tables: [
-      { title: 'Funding allocations', sheet: 'Allocations', cols: ['Programme', 'Hub', 'Amount', 'From', 'To'], num: false, rows: (r.allocations || []).map(a => [a.programme, a.hub, fmtR(a.amount), fmtDate(a.start), fmtDate(a.end)]) },
+      { title: 'Funding allocations', sheet: 'Allocations', cols: ['Programme', 'Service event', 'Amount', 'From', 'To'], num: false, rows: (r.allocations || []).map(a => [a.programme, a.hub, fmtR(a.amount), fmtDate(a.start), fmtDate(a.end)]) },
       { title: 'Programme performance', sheet: 'Programmes', cols: ['Programme', 'Funding', 'Unique beneficiaries', 'Interactions', 'Provided', 'Referred', 'Avg rating', 'Funding per beneficiary'],
         rows: (r.by_programme || []).map(p => [p.programme, fmtR(p.funding), fmtN(p.unique), fmtN(p.interactions), fmtN(p.completed), fmtN(p.referred), p.avg_rating ? Number(p.avg_rating).toFixed(2) : '–', p.unique ? fmtR(p.funding / p.unique) : '–']) },
-      { title: 'Reach by Hub', sheet: 'Hubs', viz: true, value: 1, sub: 2, cols: ['Hub', 'Interactions', 'Unique beneficiaries'], rows: (r.by_hub || []).map(x => [x.label, fmtN(x.value), fmtN(x.unique) + ' people']) },
+      { title: 'Reach by service event', sheet: 'Service events', viz: true, value: 1, sub: 2, cols: ['Service event', 'Interactions', 'Unique beneficiaries'], rows: (r.by_hub || []).map(x => [x.label, fmtN(x.value), fmtN(x.unique) + ' people']) },
       { title: 'Services provided by category', sheet: 'Categories', viz: true, cols: ['Service category', 'Interactions'], rows: (r.by_category || []).map(x => [x.label, fmtN(x.value)]) },
       { title: 'Beneficiaries by age group', sheet: 'Age', viz: true, cols: ['Age group', 'Beneficiaries'], rows: (r.by_age || []).slice().sort((a, b) => ageRank(a.label) - ageRank(b.label)).map(x => [x.label, fmtN(x.value)]) },
       { title: 'Beneficiaries by gender', sheet: 'Gender', viz: true, cols: ['Gender', 'Beneficiaries'], rows: (r.by_gender || []).map(x => [x.label, fmtN(x.value)]) },
@@ -1361,7 +1361,7 @@ function donorReport(r) {
    REPORTS & EXPORT (Module 8)
    ===================================================================== */
 const REPORTS = [
-  ['daily', 'Daily Hub Visitor Report'], ['monthly', 'Monthly Hub Performance Report'], ['quarterly', 'Quarterly Programme Performance Report'],
+  ['daily', 'Daily Service Event Visitor Report'], ['monthly', 'Monthly Service Event Performance Report'], ['quarterly', 'Quarterly Programme Performance Report'],
   ['donor', 'Donor-Specific Impact Report'], ['demographic', 'Community Demographic Report'], ['demand', 'Service Demand Analysis'],
   ['satisfaction', 'Visitor Satisfaction Report'], ['reach', 'Programme Reach and Participation Report'], ['referral', 'Referral and Follow-up Report'],
   ['unmet', 'Unmet Community Needs Report'], ['ytd', 'Year-to-Date Organisational Impact Report']
@@ -1384,7 +1384,7 @@ async function vReports() {
   $('page').innerHTML = `
     <div class="filters">
       <span class="lbl">Report</span><select class="i" id="r_type">${opts(REPORTS.map(([id, name]) => ({ id, name })), t)}</select>
-      ${t === 'donor' ? `<select class="i" id="r_donor">${opts(A.ref.donors, RS.donor)}</select>` : `<select class="i" id="r_hub">${opts(hubs, RS.hub, t === 'daily' ? null : 'All hubs')}</select>`}
+      ${t === 'donor' ? `<select class="i" id="r_donor">${opts(A.ref.donors, RS.donor)}</select>` : `<select class="i" id="r_hub">${opts(hubs, RS.hub, t === 'daily' ? null : 'All service events')}</select>`}
       ${t === 'daily' ? `<input class="i" type="date" id="r_day" value="${RS.day}">` : ''}
       ${t === 'monthly' ? `<input class="i" type="month" id="r_month" value="${RS.month}">` : ''}
       ${t === 'quarterly' ? `<select class="i" id="r_quarter">${opts(quarters(), RS.quarter)}</select>` : ''}
@@ -1399,12 +1399,12 @@ async function vReports() {
 async function drawReport() {
   const out = $('rout'); out.innerHTML = '<div class="spin"></div>';
   const t = RS.type, [from, to] = periodFor(t);
-  if (t === 'daily' && !RS.hub) { out.innerHTML = '<div class="empty">Choose a Hub for the daily report.</div>'; return; }
+  if (t === 'daily' && !RS.hub) { out.innerHTML = '<div class="empty">Choose a service event for the daily report.</div>'; return; }
   if (t === 'donor') { if (!RS.donor) { out.innerHTML = '<div class="empty">No donors set up yet.</div>'; return; } const r = await q(sb.rpc('donor_impact', { p_org: A.m.org_id, p_donor: RS.donor, p_from: from, p_to: to })); return renderReport(out, donorReport(r)); }
   const F = { hub: RS.hub };
   const rows = applyFilters(await facts(from, to), F);
   const M = metrics(rows);
-  const hubName = RS.hub ? nameOf(A.ref.hubs, RS.hub) : 'All hubs';
+  const hubName = RS.hub ? nameOf(A.ref.hubs, RS.hub) : 'All service events';
   const period = from === to ? fmtDate(from) : fmtDate(from) + ' – ' + fmtDate(to);
   const visits = Object.values(groupBy(rows, r => r.visit_id)).map(g => g[0]);
   const delivered = r => r.status === 'completed' || r.status === 'referred';
@@ -1417,7 +1417,7 @@ async function drawReport() {
     const day = await q(sb.from('visits').select('ticket_no, visited_at, is_first_visit, status, source, visitor:visitors(community, age_group, gender), visit_services(category_id, status, referral_org), feedback(rating)')
       .eq('hub_id', RS.hub).gte('visited_at', new Date(from + 'T00:00:00+02:00').toISOString()).lt('visited_at', new Date(addDays(from, 1) + 'T00:00:00+02:00').toISOString()).order('visited_at'));
     const hours = Array.from({ length: 11 }, (_, i) => i + 7);
-    rep = { title: 'Daily Hub Visitor Report', subtitle: hubName, period, kpis: stdK.slice(0, 6),
+    rep = { title: 'Daily Service Event Visitor Report', subtitle: hubName, period, kpis: stdK.slice(0, 6),
       summary: [`${hubName} received ${fmtN(day.length)} visits on ${fmtDate(from)}, of which ${fmtN(day.filter(v => v.is_first_visit).length)} were first-time visitors. ${fmtN(day.filter(v => v.status === 'closed').length)} visits were fully closed by the end of the day and ${fmtN(day.filter(v => v.status !== 'closed').length)} remain open.`],
       chart: { title: 'Arrivals by hour', labels: hours.map(h => h + ':00'), datasets: [{ label: 'Arrivals', data: hours.map(h => day.filter(v => Number(new Date(v.visited_at).toLocaleString('en-ZA', { hour: '2-digit', hour12: false, timeZone: tz })) === h).length) }] },
       tables: [{ title: 'Visits', sheet: 'Visits', num: false, cols: ['Ticket', 'Time', 'Visitor type', 'Community', 'Age group', 'Services', 'Visit status', 'Rating'],
@@ -1427,13 +1427,13 @@ async function drawReport() {
   } else if (t === 'monthly' || t === 'ytd') {
     const hubs = myHubs().filter(h => !RS.hub || h.id === RS.hub);
     const months = monthsBetween(from, to); const bm = groupBy(visits, r => r.visit_date.slice(0, 7));
-    rep = { title: t === 'ytd' ? 'Year-to-Date Organisational Impact Report' : 'Monthly Hub Performance Report', subtitle: hubName, period, kpis: stdK,
-      summary: [`During this period ${A.ref.org.name} recorded ${fmtN(M.visits)} visits from ${fmtN(M.unique)} unique beneficiaries (${fmtN(M.newBen)} of them new) across ${fmtN(M.hubs)} Hubs and ${fmtN(M.communities)} communities.`,
+    rep = { title: t === 'ytd' ? 'Year-to-Date Organisational Impact Report' : 'Monthly Service Event Performance Report', subtitle: hubName, period, kpis: stdK,
+      summary: [`During this period ${A.ref.org.name} recorded ${fmtN(M.visits)} visits from ${fmtN(M.unique)} unique beneficiaries (${fmtN(M.newBen)} of them new) across ${fmtN(M.hubs)} Service events and ${fmtN(M.communities)} communities.`,
         `${fmtN(M.delivered)} services were delivered, including ${fmtN(M.referrals)} referrals to external organisations. ${fmtPct(M.resolution)} of actioned requests were resolved and visitors rated the service ${M.avgRating ? M.avgRating.toFixed(1) : '–'}/5 on average. ${fmtN(M.outstanding)} requests are still outstanding.`,
-        M.unmet ? `Visitors also asked for ${fmtN(M.unmet)} services that their Hub does not currently offer — see the Unmet Community Needs report.` : ''].filter(Boolean),
+        M.unmet ? `Visitors also asked for ${fmtN(M.unmet)} services that their service event does not currently offer — see the Unmet Community Needs report.` : ''].filter(Boolean),
       chart: t === 'ytd' ? { title: 'Visits and beneficiaries per month', labels: months.map(monthLabel), datasets: [{ label: 'Visits', data: months.map(m => (bm[m] || []).length) }, { label: 'Unique beneficiaries', type: 'line', data: months.map(m => uniq((bm[m] || []).map(r => r.visitor_id)).length) }] }
-        : { title: 'Visits by Hub', labels: hubs.map(h => h.name.replace(' Community Hub', '')), datasets: [{ label: 'Visits', data: hubs.map(h => visits.filter(v => v.hub_id === h.id).length) }] },
-      tables: [{ title: 'Hub performance', sheet: 'Hubs', cols: ['Hub', 'Visits', 'Unique', 'New', 'Provided', 'Referrals', 'Not recorded', 'Resolution', 'Rating'],
+        : { title: 'Visits by service event', labels: hubs.map(h => h.name.replace(' Community Hub', '')), datasets: [{ label: 'Visits', data: hubs.map(h => visits.filter(v => v.hub_id === h.id).length) }] },
+      tables: [{ title: 'Service event performance', sheet: 'Service events', cols: ['Service event', 'Visits', 'Unique', 'New', 'Provided', 'Referrals', 'Not recorded', 'Resolution', 'Rating'],
           rows: hubs.map(h => { const m = metrics(rows.filter(r => r.hub_id === h.id)); return [h.name, fmtN(m.visits), fmtN(m.unique), fmtN(m.newBen), fmtN(m.delivered), fmtN(m.referrals), fmtN(m.outstanding), fmtPct(m.resolution), m.avgRating ? m.avgRating.toFixed(2) : '–']; }) },
         { title: 'Services by category', sheet: 'Services', cols: ['Category', 'Requested', 'Provided', 'Referred', 'Unmet', 'Beneficiaries'], rows: catTable() }] };
     if (t === 'ytd') rep.tables.unshift({ title: 'Monthly trend', sheet: 'Monthly', cols: ['Month', 'Visits', 'Unique beneficiaries'], rows: months.map(m => [monthLabel(m), fmtN((bm[m] || []).length), fmtN(uniq((bm[m] || []).map(r => r.visitor_id)).length)]) });
@@ -1451,7 +1451,7 @@ async function drawReport() {
     const people = Object.values(groupBy(visits, v => v.visitor_id)).map(g => g[0]);
     const comm = countBy(people, p => p.community || 'Not stated');
     rep = { title: 'Community Demographic Report', subtitle: hubName, period, kpis: [['Unique beneficiaries', fmtN(people.length)], ['Communities', fmtN(M.communities)], ['Female', fmtPct(pct(people.filter(p => p.gender === 'Female').length, people.length))], ['Youth (18–34)', fmtPct(pct(people.filter(p => ['18-24', '25-34'].includes(p.age_group)).length, people.length))], ['Under 18', fmtN(people.filter(p => p.age_group === 'Under 18').length)]],
-      summary: [`${fmtN(people.length)} different people from ${fmtN(M.communities)} communities used the Hubs in this period. The largest groups were from ${comm.slice(0, 3).map(c => c[0] + ' (' + c[1] + ')').join(', ')}.`],
+      summary: [`${fmtN(people.length)} different people from ${fmtN(M.communities)} communities used the service events in this period. The largest groups were from ${comm.slice(0, 3).map(c => c[0] + ' (' + c[1] + ')').join(', ')}.`],
       chart: { title: 'Beneficiaries by age group', labels: AGE_GROUPS, datasets: [{ label: 'Beneficiaries', data: AGE_GROUPS.map(a => people.filter(p => p.age_group === a).length) }] },
       tables: [{ title: 'By community', sheet: 'Community', viz: true, value: 1, sub: 2, cols: ['Community', 'Beneficiaries', 'Share'], rows: comm.map(([k, n]) => [k, fmtN(n), fmtPct(pct(n, people.length))]) },
         { title: 'By gender', sheet: 'Gender', viz: true, value: 1, sub: 2, cols: ['Gender', 'Beneficiaries', 'Share'], rows: countBy(people, p => p.gender || 'Not stated').map(([k, n]) => [k, fmtN(n), fmtPct(pct(n, people.length))]) },
@@ -1463,7 +1463,7 @@ async function drawReport() {
       summary: [`The most requested services were ${ct.slice().sort((a, b) => Number(b[1].replace(/\D/g, '')) - Number(a[1].replace(/\D/g, ''))).slice(0, 3).map(r => r[0]).join(', ')}. Visitors requested ${(M.visits ? M.requested / M.visits : 0).toFixed(1)} services per visit on average.`],
       chart: { title: 'Requested vs provided by category', horizontal: true, height: 320, labels: A.ref.cats.map(c => c.name), datasets: [{ label: 'Requested', data: A.ref.cats.map(c => rows.filter(r => r.category_id === c.id).length) }, { label: 'Provided', data: A.ref.cats.map(c => rows.filter(r => r.category_id === c.id && delivered(r)).length) }] },
       tables: [{ title: 'Demand by service category', sheet: 'Demand', cols: ['Category', 'Requested', 'Provided', 'Referred', 'Unmet', 'Beneficiaries'], rows: ct },
-        { title: 'Demand by Hub and category', sheet: 'Hub x Category', cols: ['Hub', ...A.ref.cats.map(c => c.name)], rows: myHubs().filter(h => !RS.hub || h.id === RS.hub).map(h => [h.name, ...A.ref.cats.map(c => fmtN(rows.filter(r => r.hub_id === h.id && r.category_id === c.id).length))]) }] };
+        { title: 'Demand by service event and category', sheet: 'Event x Category', cols: ['Service event', ...A.ref.cats.map(c => c.name)], rows: myHubs().filter(h => !RS.hub || h.id === RS.hub).map(h => [h.name, ...A.ref.cats.map(c => fmtN(rows.filter(r => r.hub_id === h.id && r.category_id === c.id).length))]) }] };
   } else if (t === 'satisfaction') {
     const fbs = await all(() => { let qq = sb.from('feedback').select('hub_id, rating, assisted, staff_helpful, visit_again, improve, additional_needs, created_at').eq('org_id', A.m.org_id)
       .gte('created_at', new Date(from + 'T00:00:00+02:00').toISOString()).lt('created_at', new Date(addDays(to, 1) + 'T00:00:00+02:00').toISOString()).order('created_at'); if (RS.hub) qq = qq.eq('hub_id', RS.hub); return qq; });
@@ -1473,11 +1473,11 @@ async function drawReport() {
       kpis: [['Responses', fmtN(fbs.length)], ['Average rating', avg(fbs.map(f => f.rating).filter(Boolean)) + '/5'], ['Fully assisted', share('assisted', 'yes')], ['Staff helpful', share('staff_helpful', 'yes')], ['Would visit again', share('visit_again', 'yes')]],
       summary: [`${fmtN(fbs.length)} visitors gave feedback in this period, with an average rating of ${avg(fbs.map(f => f.rating).filter(Boolean))}/5. ${share('assisted', 'yes')} said they were fully assisted and ${share('visit_again', 'yes')} would visit again.`],
       chart: { title: 'Rating distribution', labels: ['1 Poor', '2 Fair', '3 Good', '4 Very good', '5 Excellent'], datasets: [{ label: 'Responses', data: [1, 2, 3, 4, 5].map(n => fbs.filter(f => f.rating === n).length) }] },
-      tables: [{ title: 'Satisfaction by Hub', sheet: 'By Hub', cols: ['Hub', 'Responses', 'Avg rating', 'Fully assisted', 'Would return'],
+      tables: [{ title: 'Satisfaction by service event', sheet: 'By event', cols: ['Service event', 'Responses', 'Avg rating', 'Fully assisted', 'Would return'],
           rows: myHubs().filter(h => !RS.hub || h.id === RS.hub).map(h => { const f = fbs.filter(x => x.hub_id === h.id); return [h.name, fmtN(f.length), avg(f.map(x => x.rating).filter(Boolean)), fmtPct(pct(f.filter(x => x.assisted === 'yes').length, f.length)), fmtPct(pct(f.filter(x => x.visit_again === 'yes').length, f.length))]; }) },
         { title: 'Satisfaction by programme', sheet: 'By Programme', cols: ['Programme', 'Rated visits', 'Avg rating'],
           rows: A.ref.progs.map(p => { const vv = uniq(rows.filter(r => r.programme_id === p.id && r.rating != null).map(r => r.visit_id + '|' + r.rating)).map(x => Number(x.split('|')[1])); return [p.name, fmtN(vv.length), avg(vv)]; }).filter(r => r[1] !== '0') },
-        { title: 'Suggestions for improvement', sheet: 'Comments', num: false, cols: ['Date', 'Hub', 'Comment'], rows: fbs.filter(f => f.improve || f.additional_needs).slice(-100).reverse().map(f => [fmtDate(f.created_at), nameOf(A.ref.hubs, f.hub_id), [f.improve, f.additional_needs && ('Other needs: ' + f.additional_needs)].filter(Boolean).join(' · ')]) }] };
+        { title: 'Suggestions for improvement', sheet: 'Comments', num: false, cols: ['Date', 'Service event', 'Comment'], rows: fbs.filter(f => f.improve || f.additional_needs).slice(-100).reverse().map(f => [fmtDate(f.created_at), nameOf(A.ref.hubs, f.hub_id), [f.improve, f.additional_needs && ('Other needs: ' + f.additional_needs)].filter(Boolean).join(' · ')]) }] };
   } else if (t === 'referral') {
     const refs = rows.filter(r => r.status === 'referred');
     const fu = await q((() => { let qq = sb.from('visit_services').select('id, status, follow_up_date, category_id, visit:visits!inner(ticket_no, hub_id, visited_at)').eq('org_id', A.m.org_id).eq('status', 'follow_up').order('follow_up_date', { ascending: true, nullsFirst: false }).limit(300); if (RS.hub) qq = qq.eq('visit.hub_id', RS.hub); return qq; })());
@@ -1487,18 +1487,18 @@ async function drawReport() {
       chart: { title: 'Referrals by partner organisation', horizontal: true, height: Math.max(180, byOrg.length * 38), labels: byOrg.map(x => x[0]), datasets: [{ label: 'Referrals', data: byOrg.map(x => x[1]) }] },
       tables: [{ title: 'Referrals by organisation and service', sheet: 'Referrals', cols: ['Organisation', 'Referrals', ...A.ref.cats.filter(c => refs.some(r => r.category_id === c.id)).map(c => c.name)],
           rows: byOrg.map(([o, n]) => [o, fmtN(n), ...A.ref.cats.filter(c => refs.some(r => r.category_id === c.id)).map(c => fmtN(refs.filter(r => (r.referral_org || 'Not recorded') === o && r.category_id === c.id).length))]) },
-        { title: 'Open follow-ups', sheet: 'Follow-ups', num: false, cols: ['Hub', 'Visit date', 'Ticket', 'Service', 'Follow-up due'], rows: fu.map(f => [nameOf(A.ref.hubs, f.visit.hub_id), fmtDate(f.visit.visited_at), f.visit.ticket_no, nameOf(A.ref.cats, f.category_id), f.follow_up_date ? fmtDate(f.follow_up_date) + (f.follow_up_date < today() ? ' (overdue)' : '') : 'Not set']) }] };
+        { title: 'Open follow-ups', sheet: 'Follow-ups', num: false, cols: ['Service event', 'Visit date', 'Ticket', 'Service', 'Follow-up due'], rows: fu.map(f => [nameOf(A.ref.hubs, f.visit.hub_id), fmtDate(f.visit.visited_at), f.visit.ticket_no, nameOf(A.ref.cats, f.category_id), f.follow_up_date ? fmtDate(f.follow_up_date) + (f.follow_up_date < today() ? ' (overdue)' : '') : 'Not set']) }] };
   } else if (t === 'unmet') {
     const un = rows.filter(r => !r.is_available);
     const byCat = countBy(un, r => r.category_name);
     const texts = await all(() => { let qq = sb.from('visits').select('hub_id, visited_at, unmet_other').eq('org_id', A.m.org_id).not('unmet_other', 'is', null)
       .gte('visited_at', new Date(from + 'T00:00:00+02:00').toISOString()).lt('visited_at', new Date(addDays(to, 1) + 'T00:00:00+02:00').toISOString()); if (RS.hub) qq = qq.eq('hub_id', RS.hub); return qq; });
     rep = { title: 'Unmet Community Needs Report', subtitle: hubName, period, kpis: [['Unmet requests', fmtN(un.length)], ['People affected', fmtN(uniq(un.map(r => r.visitor_id)).length)], ['Service gaps', fmtN(byCat.length)], ['Share of all requests', fmtPct(pct(un.length, rows.length))]],
-      summary: [un.length ? `Visitors asked for ${fmtN(un.length)} services that their Hub does not offer, affecting ${fmtN(uniq(un.map(r => r.visitor_id)).length)} people. The largest gaps are ${byCat.slice(0, 3).map(x => x[0] + ' (' + x[1] + ')').join(', ')}. This is evidence for new programmes and funding applications.` : 'No unmet needs were recorded for this selection.'],
+      summary: [un.length ? `Visitors asked for ${fmtN(un.length)} services that their service event does not offer, affecting ${fmtN(uniq(un.map(r => r.visitor_id)).length)} people. The largest gaps are ${byCat.slice(0, 3).map(x => x[0] + ' (' + x[1] + ')').join(', ')}. This is evidence for new programmes and funding applications.` : 'No unmet needs were recorded for this selection.'],
       chart: byCat.length ? { title: 'Unmet requests by service', horizontal: true, height: Math.max(160, byCat.length * 42), labels: byCat.map(x => x[0]), datasets: [{ label: 'Unmet requests', data: byCat.map(x => x[1]), backgroundColor: '#eb6834' }] } : null,
-      tables: [{ title: 'Unmet needs by Hub', sheet: 'By Hub', cols: ['Hub', 'Service', 'Requests', 'People'],
+      tables: [{ title: 'Unmet needs by service event', sheet: 'By event', cols: ['Service event', 'Service', 'Requests', 'People'],
           rows: Object.entries(groupBy(un, r => r.hub_name + '|' + r.category_name)).sort((a, b) => b[1].length - a[1].length).map(([k, v]) => [...k.split('|'), fmtN(v.length), fmtN(uniq(v.map(r => r.visitor_id)).length)]) },
-        { title: 'Other needs described by visitors', sheet: 'Described needs', num: false, cols: ['Date', 'Hub', 'Need'], rows: texts.map(x => [fmtDate(x.visited_at), nameOf(A.ref.hubs, x.hub_id), x.unmet_other]) }] };
+        { title: 'Other needs described by visitors', sheet: 'Described needs', num: false, cols: ['Date', 'Service event', 'Need'], rows: texts.map(x => [fmtDate(x.visited_at), nameOf(A.ref.hubs, x.hub_id), x.unmet_other]) }] };
   }
   renderReport(out, rep);
 }
@@ -1507,7 +1507,7 @@ async function drawReport() {
    ADMINISTRATION (Module 7)
    ===================================================================== */
 const ADMIN_TABS = [
-  ['hubs', 'Hubs & kiosks'], ['regions', 'Provinces & towns'], ['services', 'Service categories'], ['programmes', 'Programmes'], ['donors', 'Donors & funding'],
+  ['hubs', 'Service events & kiosks'], ['regions', 'Provinces & towns'], ['services', 'Service categories'], ['programmes', 'Programmes'], ['donors', 'Donors & funding'],
   ['users', 'Users & access'], ['communities', 'Communities'], ['settings', 'Settings & POPIA'], ['audit', 'Audit log']
 ];
 let ADM = 'hubs';
@@ -1528,19 +1528,19 @@ async function aHubs() {
   const links = await q(sb.rpc('kiosk_links', { p_org: A.m.org_id }));
   const base = new URL('kiosk.html', location.href).href;
   $('aout').innerHTML = `
-    <div class="row" style="justify-content:space-between;margin-bottom:12px"><div class="muted">Each Hub has its own kiosk link. Open it once on the Hub's tablet — the tablet remembers it.</div>${isAdmin() ? '<button class="btn" id="newHub">+ Add hub</button>' : ''}</div>
-    ${tbl(['Hub', 'Town', 'Province', 'Services offered', 'Kiosk link', 'Status', ''], A.ref.hubs.filter(h => can(MANAGERS) || (A.m.hub_ids || []).includes(h.id)).map(h => {
+    <div class="row" style="justify-content:space-between;margin-bottom:12px"><div class="muted">Each service event has its own kiosk link. Open it once on the service event's tablet — the tablet remembers it.</div>${isAdmin() ? '<button class="btn" id="newHub">+ Add hub</button>' : ''}</div>
+    ${tbl(['Service event', 'Town', 'Province', 'Services offered', 'Kiosk link', 'Status', ''], A.ref.hubs.filter(h => can(MANAGERS) || (A.m.hub_ids || []).includes(h.id)).map(h => {
       const l = links.find(x => x.hub_id === h.id);
       const url = l ? base + '?k=' + l.token : '';
       return `<tr><td><div class="row" style="gap:10px;flex-wrap:nowrap"><div class="logoslot sm" style="border-color:${esc(h.brand_colour)}">${h.logo_url ? `<img src="${esc(h.logo_url)}" alt="">` : `<span style="color:${esc(h.brand_colour)}">${esc(hubInitials(h.name))}</span>`}</div>
         <div><b>${esc(h.name)}</b><div class="faint" style="font-size:12px">${esc(h.code || '')}${h.logo_url ? '' : ' · no logo yet'}</div></div></div></td>
         <td>${esc(h.town || '—')}</td><td>${esc(nameOf(A.ref.regions, h.region_id))}</td><td>${A.ref.hubSvc.filter(s => s.hub_id === h.id).length} of ${A.ref.cats.filter(c => c.active).length}</td>
-        <td>${l ? `<button class="btn sm sec" data-copy="${esc(url)}">Copy link</button> <a class="btn sm sec" href="${esc(url)}" target="_blank" style="text-decoration:none" title="Opens this Hub's kiosk and connects this browser to it">Open kiosk</a> <button class="btn sm sec" data-rot="${h.id}" title="Old link stops working">New link</button>` : '—'}</td>
+        <td>${l ? `<button class="btn sm sec" data-copy="${esc(url)}">Copy link</button> <a class="btn sm sec" href="${esc(url)}" target="_blank" style="text-decoration:none" title="Opens this service event's kiosk and connects this browser to it">Open kiosk</a> <button class="btn sm sec" data-rot="${h.id}" title="Old link stops working">New link</button>` : '—'}</td>
         <td>${activeBadge(h.active)}</td><td>${isAdmin() ? `<button class="btn sm sec" data-edit="${h.id}">Edit</button>` : ''}</td></tr>`;
     }))}
-    <div class="note" style="margin-top:12px">Kiosk links are secret: anyone with a link can register visitors at that Hub, but nobody can read visitor data with it. If a tablet is lost, click <b>New link</b> to disable the old one.</div>`;
+    <div class="note" style="margin-top:12px">Kiosk links are secret: anyone with a link can register visitors at that service event, but nobody can read visitor data with it. If a tablet is lost, click <b>New link</b> to disable the old one.</div>`;
   document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => navigator.clipboard.writeText(b.dataset.copy).then(() => toast('Kiosk link copied')));
-  document.querySelectorAll('[data-rot]').forEach(b => b.onclick = async () => { if (!await confirmDlg('Create a new kiosk link?', 'The current link stops working immediately. You will need to open the new link on the Hub\'s tablet.', 'Create new link')) return; try { await q(sb.rpc('rotate_kiosk', { p_hub: b.dataset.rot })); toast('New kiosk link created'); aHubs(); } catch (e) { fail(e); } });
+  document.querySelectorAll('[data-rot]').forEach(b => b.onclick = async () => { if (!await confirmDlg('Create a new kiosk link?', 'The current link stops working immediately. You will need to open the new link on the service event\'s tablet.', 'Create new link')) return; try { await q(sb.rpc('rotate_kiosk', { p_hub: b.dataset.rot })); toast('New kiosk link created'); aHubs(); } catch (e) { fail(e); } });
   document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => hubForm(byId(A.ref.hubs, b.dataset.edit)));
   if ($('newHub')) $('newHub').onclick = () => hubForm({ active: true, brand_colour: '#1f3d7c' });
 }
@@ -1554,10 +1554,10 @@ function hubForm(h) {
       <div id="h_logo_prev" class="logoslot">${h.logo_url ? `<img src="${esc(h.logo_url)}" alt="">` : `<span>${esc(hubInitials(h.name))}</span>`}</div>
       <div><div class="row" style="gap:8px"><label class="btn sm sec" style="cursor:pointer">${h.logo_url ? 'Replace logo' : 'Upload logo'}<input type="file" id="h_logo" accept="image/png,image/jpeg,image/webp" hidden></label>
         <button class="btn sm danger ${h.logo_url ? '' : 'hidden'}" type="button" id="h_logo_rm">Remove</button></div>
-        <div class="faint" style="font-size:12.5px;margin-top:6px">PNG, JPG or WebP, up to 1 MB. A square logo on a transparent or white background works best.<br>Without a logo the kiosk shows the Hub's initials.</div></div>
+        <div class="faint" style="font-size:12.5px;margin-top:6px">PNG, JPG or WebP, up to 1 MB. A square logo on a transparent or white background works best.<br>Without a logo the kiosk shows the service event's initials.</div></div>
     </div>
     <div class="fld grid g2" style="gap:0 14px">
-    ${fld('Hub name', `<input class="i" id="h_name" value="${esc(h.name || '')}">`, true)}
+    ${fld('Service event name', `<input class="i" id="h_name" value="${esc(h.name || '')}">`, true)}
     ${fld('Short code', `<input class="i" id="h_code" value="${esc(h.code || '')}">`)}
     ${fld('Province', `<select class="i" id="h_region">${sopts(PROVINCES, h._province || (byId(A.ref.regions, h.region_id) || {}).name || '', 'Select province…')}</select>`)}
     ${fld('Town', `<select class="i" id="h_town"></select><input class="i hidden" id="h_town_new" placeholder="Type the new town's name" style="margin-top:6px">`)}
@@ -1565,7 +1565,7 @@ function hubForm(h) {
     ${fld('Brand colour (kiosk)', `<input class="i" type="color" id="h_col" value="${esc(h.brand_colour || '#1f3d7c')}" style="height:40px;padding:4px">`)}
     ${fld('Status', `<select class="i" id="h_act">${opts([{ id: 'true', name: 'Active' }, { id: 'false', name: 'Inactive' }], String(h.active !== false))}</select>`)}
     ${fld('Kiosk welcome message', `<textarea class="i" id="h_wel">${esc(h.welcome_message || '')}</textarea>`, true)}</div>
-    <label class="lb">Services offered at this Hub</label><div class="checks">${A.ref.cats.filter(c => c.active).map(c => `<label><input type="checkbox" value="${c.id}" ${offered.has(c.id) ? 'checked' : ''}> ${esc(c.icon || '')} ${esc(c.name)}</label>`).join('')}</div>
+    <label class="lb">Services offered at this service event</label><div class="checks">${A.ref.cats.filter(c => c.active).map(c => `<label><input type="checkbox" value="${c.id}" ${offered.has(c.id) ? 'checked' : ''}> ${esc(c.icon || '')} ${esc(c.name)}</label>`).join('')}</div>
     <div class="faint" style="font-size:12.5px;margin-top:6px">Unticked services still appear on the kiosk as "not offered here" so visitors can record the need.</div>`,
   { save: async w => {
     const prov = $('h_region').value;
@@ -1594,7 +1594,7 @@ function hubForm(h) {
     const want = [...w.querySelectorAll('.checks input:checked')].map(i => i.value);
     await q(sb.from('hub_services').delete().eq('hub_id', saved.id));
     if (want.length) await q(sb.from('hub_services').insert(want.map(c => ({ hub_id: saved.id, category_id: c, org_id: A.m.org_id }))));
-    toast('Hub saved'); await reload();
+    toast('Service event saved'); await reload();
   } });
   const drawTowns = keep => {
     const list = townsIn($('h_region').value);
@@ -1646,24 +1646,24 @@ function simpleCrud({ table, title, rows, cols, render, fields, defaults = {}, a
 
 async function aRegions() {
   const hubsOf = r => r ? A.ref.hubs.filter(h => h.region_id === r.id) : [];
-  $('aout').innerHTML = `<div class="note" style="margin-bottom:12px"><b>Where the Hubs are:</b> Province → Town → Hub. Use these to filter the dashboard and reports.
+  $('aout').innerHTML = `<div class="note" style="margin-bottom:12px"><b>Where the service events are:</b> Province → Town → Service event. Use these to filter the dashboard and reports.
       Where <i>visitors</i> live is set under <b>Communities</b>.</div>
-    ${tbl(['Province', 'Towns', 'Hubs'], PROVINCES.map(p => {
+    ${tbl(['Province', 'Towns', 'Service events'], PROVINCES.map(p => {
       const r = A.ref.regions.find(x => x.name === p);
       const towns = r ? A.ref.towns.filter(t => t.region_id === r.id) : [];
       const hubs = hubsOf(r);
       return `<tr><td><b>${esc(p)}</b></td>
         <td>${towns.map(t => { const used = hubs.some(h => h.town === t.name); return `<span class="chip">${esc(t.name)}${used ? '' : ` <button class="chipx" data-deltown="${t.id}" title="Remove town">×</button>`}</span>`; }).join('')}
           <button class="addchip" data-addtown="${esc(p)}">+ Add town</button></td>
-        <td>${hubs.map(h => `<button class="chip chipbtn" data-edithub="${h.id}" title="Edit hub">${esc(h.name.replace(' Community Hub', ''))}${h.town ? ` <span class="faint">· ${esc(h.town)}</span>` : ''}</button>`).join('')}
+        <td>${hubs.map(h => `<button class="chip chipbtn" data-edithub="${h.id}" title="Edit service event">${esc(h.name.replace(' Community Hub', ''))}${h.town ? ` <span class="faint">· ${esc(h.town)}</span>` : ''}</button>`).join('')}
           <button class="addchip" data-addhub="${esc(p)}">+ Add hub</button></td></tr>`;
     }))}
-    <div class="faint" style="font-size:12.5px;margin-top:8px">A town can only be removed when no Hub uses it. Click a Hub to edit it.</div>`;
+    <div class="faint" style="font-size:12.5px;margin-top:8px">A town can only be removed when no service event uses it. Click a service event to edit it.</div>`;
   document.querySelectorAll('[data-addtown]').forEach(b => b.onclick = () => modal('Add a town in ' + b.dataset.addtown, `<div class="fld">${fld('Town name', '<input class="i" id="t_name" placeholder="e.g. Fish Hoek">')}</div>`,
     { save: async () => { const n = $('t_name').value.trim(); if (!n) { toast('Enter a town name', true); return false; }
         await ensureTown(await ensureProvince(b.dataset.addtown), n); toast(n + ' added'); await reload(); } }));
   document.querySelectorAll('[data-deltown]').forEach(b => b.onclick = async () => { const t = byId(A.ref.towns, b.dataset.deltown);
-    if (!await confirmDlg('Remove ' + t.name + '?', 'The town will be removed from the list. No Hubs use it.', 'Remove')) return;
+    if (!await confirmDlg('Remove ' + t.name + '?', 'The town will be removed from the list. No service events use it.', 'Remove')) return;
     try { await q(sb.from('towns').delete().eq('id', t.id)); await reload(); } catch (e) { fail(e); } });
   document.querySelectorAll('[data-addhub]').forEach(b => b.onclick = () => hubForm({ active: true, brand_colour: '#1f3d7c', _province: b.dataset.addhub }));
   document.querySelectorAll('[data-edithub]').forEach(b => b.onclick = () => hubForm(byId(A.ref.hubs, b.dataset.edithub)));
@@ -1672,7 +1672,7 @@ async function aServices() {
   simpleCrud({ table: 'service_categories', title: 'service category', rows: A.ref.cats, cols: ['', 'Category', 'Examples (shown on kiosk)', 'Order', 'Status'],
     render: c => [esc(c.icon || ''), `<b>${esc(c.name)}</b>`, esc(c.examples || ''), c.sort_order, activeBadge(c.active)],
     fields: [{ k: 'name', label: 'Category name', req: true }, { k: 'icon', label: 'Icon (an emoji, e.g. 💼)' }, { k: 'examples', label: 'Examples', type: 'textarea' }, { k: 'sort_order', label: 'Display order', type: 'number' }, { k: 'active', label: 'Status', type: 'bool' }] });
-  $('aout').insertAdjacentHTML('beforeend', '<div class="note" style="margin-top:12px">Deactivate a category instead of deleting it, so historical reports stay intact. Choose which Hubs offer each service under <b>Hubs & kiosks → Edit</b>.</div>');
+  $('aout').insertAdjacentHTML('beforeend', '<div class="note" style="margin-top:12px">Deactivate a category instead of deleting it, so historical reports stay intact. Choose which service events offer each service under <b>Service events & kiosks → Edit</b>.</div>');
 }
 async function aProgrammes() {
   simpleCrud({ table: 'programmes', title: 'programme', rows: A.ref.progs, cols: ['Programme', 'Service category', 'Funded by', 'Status'],
@@ -1683,11 +1683,11 @@ async function aProgrammes() {
 }
 async function aDonors() {
   $('aout').innerHTML = `<div class="grid" style="gap:18px"><div id="dl"></div><div><div class="row" style="justify-content:space-between;margin:8px 0 12px"><h3 style="margin:0">Funding allocations</h3><button class="btn" id="addAl">+ Add allocation</button></div><div id="al"></div>
-    <div class="note" style="margin-top:12px">An allocation links a donor to a programme (optionally one Hub) for a period. Services recorded under that programme, at that Hub, within those dates count towards the donor's impact report.</div></div></div>`;
+    <div class="note" style="margin-top:12px">An allocation links a donor to a programme (optionally one service event) for a period. Services recorded under that programme, at that service event, within those dates count towards the donor's impact report.</div></div></div>`;
   $('dl').innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:12px"><h3 style="margin:0">Donors</h3><button class="btn" id="addD">+ Add donor</button></div>` +
     tbl(['Donor', 'Contact', 'Total allocated', 'Status', ''], A.ref.donors.map(d => `<tr><td><b>${esc(d.name)}</b><div class="faint" style="font-size:12.5px">${esc(d.notes || '')}</div></td><td>${esc(d.contact_name || '')}<div class="faint">${esc(d.contact_email || '')}</div></td>
       <td>${fmtR(A.ref.allocs.filter(a => a.donor_id === d.id).reduce((s, a) => s + Number(a.amount), 0))}</td><td>${activeBadge(d.active)}</td><td><button class="btn sm sec" data-ed="${d.id}">Edit</button></td></tr>`));
-  $('al').innerHTML = tbl(['Donor', 'Programme', 'Hub', 'Amount', 'Period', ''], A.ref.allocs.map(a => `<tr><td>${esc(nameOf(A.ref.donors, a.donor_id))}</td><td>${esc(nameOf(A.ref.progs, a.programme_id))}</td><td>${esc(allocHubLabel(a))}</td>
+  $('al').innerHTML = tbl(['Donor', 'Programme', 'Service event', 'Amount', 'Period', ''], A.ref.allocs.map(a => `<tr><td>${esc(nameOf(A.ref.donors, a.donor_id))}</td><td>${esc(nameOf(A.ref.progs, a.programme_id))}</td><td>${esc(allocHubLabel(a))}</td>
       <td>${fmtR(a.amount)}</td><td>${fmtDate(a.start_date)} – ${fmtDate(a.end_date)}</td><td style="white-space:nowrap"><button class="btn sm sec" data-ea="${a.id}">Edit</button> <button class="btn sm danger" data-da="${a.id}">Delete</button></td></tr>`));
   const dForm = d => modal(d.id ? 'Edit donor' : 'Add donor', `<div class="fld">${fld('Donor name', `<input class="i" id="d_name" value="${esc(d.name || '')}">`)}${fld('Contact person', `<input class="i" id="d_cn" value="${esc(d.contact_name || '')}">`)}
       ${fld('Contact email', `<input class="i" id="d_ce" type="email" value="${esc(d.contact_email || '')}">`)}${fld('Notes', `<textarea class="i" id="d_notes">${esc(d.notes || '')}</textarea>`)}
@@ -1700,12 +1700,12 @@ async function aDonors() {
       ${fld('Amount (R)', `<input class="i" id="a_amt" type="number" min="0" step="1000" value="${esc(a.amount || '')}">`)}
       ${fld('Start date', `<input class="i" id="a_s" type="date" value="${esc(a.start_date || today())}">`)}${fld('End date', `<input class="i" id="a_e" type="date" value="${esc(a.end_date || addDays(today(), 364))}">`)}
       ${fld('Notes', `<input class="i" id="a_n" value="${esc(a.notes || '')}">`, true)}</div>
-      <label class="lb">Hubs covered by this funding</label>
+      <label class="lb">Service events covered by this funding</label>
       <div class="checks" id="a_hubs"><label style="font-weight:700"><input type="checkbox" id="a_all" ${allocHubIds(a).length ? '' : 'checked'}> All hubs</label>
         ${A.ref.hubs.map(h => `<label><input type="checkbox" data-ah value="${h.id}" ${allocHubIds(a).includes(h.id) ? 'checked' : ''}> ${esc(h.name)}</label>`).join('')}</div>
-      <div class="faint" style="font-size:12.5px;margin-top:6px">Tick the Hubs this one amount covers. If each Hub gets its own amount, add a separate allocation per Hub instead.</div>`,
+      <div class="faint" style="font-size:12.5px;margin-top:6px">Tick the service events this one amount covers. If each service event gets its own amount, add a separate allocation per service event instead.</div>`,
     { save: async () => { const hubIds = $('a_all').checked ? [] : [...document.querySelectorAll('[data-ah]:checked')].map(i => i.value);
-      if (!$('a_all').checked && !hubIds.length) { toast('Tick at least one Hub, or All hubs', true); return false; }
+      if (!$('a_all').checked && !hubIds.length) { toast('Tick at least one service event, or All service events', true); return false; }
       const row = { org_id: A.m.org_id, donor_id: $('a_d').value, programme_id: $('a_p').value, hub_id: null, amount: Number($('a_amt').value || 0), start_date: $('a_s').value, end_date: $('a_e').value, notes: $('a_n').value.trim() || null };
       if (!row.donor_id || !row.programme_id) { toast('Choose a donor and a programme', true); return false; }
       if (row.end_date < row.start_date) { toast('End date must be after start date', true); return false; }
@@ -1731,7 +1731,7 @@ async function aUsers() {
         [...mh.filter(x => x.member_id === m.id).map(x => chip(nameOf(A.ref.hubs, x.hub_id).replace(' Community Hub', ''))), ...mp.filter(x => x.member_id === m.id).map(x => chip(nameOf(A.ref.progs, x.programme_id)))].join('') || '<span class="faint">None</span>'}</td>
       <td>${m.user_id ? '<span class="badge">Linked</span>' : '<span class="badge grey">Invited</span>'} ${m.active ? '' : '<span class="badge grey">Disabled</span>'}</td>
       <td><button class="btn sm sec" data-u="${m.id}">Edit</button></td></tr>`))}
-    <div class="note" style="margin-top:12px"><b>Roles:</b> Super Administrator — full control · Management — all Hubs, dashboards & reports · Hub Manager — their Hubs, kiosk links & reports · Hub Staff — visitor & service management at their Hubs · Programme Manager — their programmes' data & reporting · Donor Viewer — their own impact report only, never beneficiary details.</div>`;
+    <div class="note" style="margin-top:12px"><b>Roles:</b> Super Administrator — full control · Management — all service events, dashboards & reports · Service Event Manager — their service events, kiosk links & reports · Service Event Staff — visitor & service management at their service events · Programme Manager — their programmes' data & reporting · Donor Viewer — their own impact report only, never beneficiary details.</div>`;
   const form = m => {
     const hubs = new Set(mh.filter(x => x.member_id === m.id).map(x => x.hub_id)), progs = new Set(mp.filter(x => x.member_id === m.id).map(x => x.programme_id));
     const roles = Object.keys(ROLE_LABEL).filter(r => r !== 'super_admin' || role() === 'super_admin' || m.role === 'super_admin');
@@ -1740,7 +1740,7 @@ async function aUsers() {
       ${fld('Role', `<select class="i" id="u_role">${opts(roles.map(r => ({ id: r, name: ROLE_LABEL[r] })), m.role || 'hub_staff')}</select>`)}
       ${fld('Status', `<select class="i" id="u_act">${opts([{ id: 'true', name: 'Active' }, { id: 'false', name: 'Disabled' }], String(m.active !== false))}</select>`)}</div>
       <div id="u_donor"><label class="lb">Donor (for Donor Viewers)</label><select class="i" id="u_d" style="width:100%">${opts(A.ref.donors, m.donor_id, 'Select donor')}</select></div>
-      <div id="u_hubs"><label class="lb">Hubs</label><div class="checks">${A.ref.hubs.map(h => `<label><input type="checkbox" data-h value="${h.id}" ${hubs.has(h.id) ? 'checked' : ''}> ${esc(h.name)}</label>`).join('')}</div></div>
+      <div id="u_hubs"><label class="lb">Service events</label><div class="checks">${A.ref.hubs.map(h => `<label><input type="checkbox" data-h value="${h.id}" ${hubs.has(h.id) ? 'checked' : ''}> ${esc(h.name)}</label>`).join('')}</div></div>
       <div id="u_progs"><label class="lb">Programmes (for Programme Managers)</label><div class="checks">${A.ref.progs.map(p => `<label><input type="checkbox" data-p value="${p.id}" ${progs.has(p.id) ? 'checked' : ''}> ${esc(p.name)}</label>`).join('')}</div></div>`,
     { save: async w => {
       const row = { org_id: A.m.org_id, full_name: $('u_name').value.trim(), role: $('u_role').value, active: $('u_act').value === 'true', donor_id: $('u_role').value === 'donor_viewer' ? ($('u_d').value || null) : null };
@@ -1769,14 +1769,14 @@ async function aCommunities() {
     const list = A.ref.comms.filter(c => (c.hub_id || null) === hubId).sort((a, b) => a.name.localeCompare(b.name));
     const hub = hubId ? byId(A.ref.hubs, hubId) : null;
     return `<div class="card"><h3>${esc(title)}</h3><div class="sub">${sub}</div>
-      <div class="addchips">${hub && hub.town ? `<span class="chip" title="Added automatically">${esc(hub.town)} <span class="faint">(Hub's town)</span></span>` : ''}
+      <div class="addchips">${hub && hub.town ? `<span class="chip" title="Added automatically">${esc(hub.town)} <span class="faint">(Service event's town)</span></span>` : ''}
         ${list.map(c => `<span class="chip">${esc(c.name)} <button class="chipx" data-delcomm="${c.id}" title="Remove">×</button></span>`).join('')}</div>
       <div class="row" style="margin-top:10px;flex-wrap:nowrap"><input class="i" style="flex:1" data-newcomm="${hubId || ''}" placeholder="Add a community or area, e.g. Kommetjie"><button class="btn sm" data-addcomm="${hubId || ''}">Add</button></div></div>`;
   };
-  $('aout').innerHTML = `<div class="note" style="margin-bottom:12px"><b>Where visitors live.</b> These are the quick-tap answers to <i>"Where do you live?"</i> on each Hub's kiosk, and they feed the <b>Community reach</b> figures in the dashboard and donor reports.
-      Each kiosk always includes its own Hub's town, and visitors can tap <i>Somewhere else</i> to type a different area.</div>
-    <div class="grid g2">${A.ref.hubs.map(h => group(h.name, `${esc([h.town, nameOf(A.ref.regions, h.region_id, '')].filter(Boolean).join(', ') || 'No town set')} · shown on this Hub's kiosk`, h.id)).join('')}
-      ${group('All Hubs', 'Shown on every Hub\'s kiosk', null)}</div>`;
+  $('aout').innerHTML = `<div class="note" style="margin-bottom:12px"><b>Where visitors live.</b> These are the quick-tap answers to <i>"Where do you live?"</i> on each service event's kiosk, and they feed the <b>Community reach</b> figures in the dashboard and donor reports.
+      Each kiosk always includes its own service event's town, and visitors can tap <i>Somewhere else</i> to type a different area.</div>
+    <div class="grid g2">${A.ref.hubs.map(h => group(h.name, `${esc([h.town, nameOf(A.ref.regions, h.region_id, '')].filter(Boolean).join(', ') || 'No town set')} · shown on this service event's kiosk`, h.id)).join('')}
+      ${group('All Service events', 'Shown on every service event\'s kiosk', null)}</div>`;
   document.querySelectorAll('[data-addcomm]').forEach(b => b.onclick = async () => {
     const inp = document.querySelector(`[data-newcomm="${b.dataset.addcomm}"]`); const n = inp.value.trim(); if (!n) return;
     try { await q(sb.from('communities').insert({ org_id: A.m.org_id, hub_id: b.dataset.addcomm || null, name: n })); toast(n + ' added'); await reload(); } catch (e) { fail(e); }
@@ -1798,7 +1798,7 @@ async function aSettings() {
       <label class="lb">Feedback questions</label><div class="checks">${tog('fq_assisted', fq.assisted, '1. Were you assisted?')}${tog('fq_rating', fq.rating, '2. Rating 1–5')}${tog('fq_staff', fq.staff_helpful, '3. Staff helpful?')}${tog('fq_again', fq.visit_again, '4. Visit again?')}${tog('fq_imp', fq.improve, '5. What to improve')}${tog('fq_needs', fq.additional_needs, '6. Additional needs')}</div></div>
     <div class="card"><h3>POPIA</h3><div class="fld">
       ${fld('Privacy notice shown before registration', `<textarea class="i" id="s_notice" style="min-height:170px" ${sa ? '' : 'disabled'}>${esc(s.privacy_notice || '')}</textarea>`)}
-      <div class="faint" style="font-size:12.5px;margin-top:6px">Each kiosk fills in its own details: <code>{hub}</code> Hub name · <code>{town}</code> Hub town · <code>{organisation}</code> organisation name · <code>{retention}</code> retention period.</div>
+      <div class="faint" style="font-size:12.5px;margin-top:6px">Each kiosk fills in its own details: <code>{hub}</code> Service event name · <code>{town}</code> Service event town · <code>{organisation}</code> organisation name · <code>{retention}</code> retention period.</div>
       <label class="lb">Preview for <select class="i" id="s_prevhub" style="padding:3px 6px;font-size:12.5px">${opts(A.ref.hubs, (A.ref.hubs[0] || {}).id)}</select></label>
       <div class="note" id="s_preview" style="line-height:1.55"></div>
       <div class="grid g2" style="gap:0 14px">${fld('Consent version', `<input class="i" id="s_cv" value="${esc(s.consent_version || 'v1')}" ${sa ? '' : 'disabled'}>`)}
@@ -1810,7 +1810,7 @@ async function aSettings() {
   const preview = () => {
     const h = byId(A.ref.hubs, $('s_prevhub').value) || {}; const months = Number($('s_ret').value) || 36;
     const ret = months % 12 === 0 ? (months / 12) + (months === 12 ? ' year' : ' years') : months + ' months';
-    $('s_preview').textContent = ($('s_notice').value || '').replace(/\{hub\}/gi, h.name || 'this Hub').replace(/\{town\}/gi, h.town || h.name || 'your area')
+    $('s_preview').textContent = ($('s_notice').value || '').replace(/\{hub\}/gi, h.name || 'this service event').replace(/\{town\}/gi, h.town || h.name || 'your area')
       .replace(/\{organisation\}|\{organization\}/gi, $('s_name').value || A.ref.org.name).replace(/\{retention\}/gi, ret);
   };
   ['s_notice', 's_ret', 's_name'].forEach(id => $(id).addEventListener('input', preview)); $('s_prevhub').onchange = preview; preview();
